@@ -33,13 +33,20 @@ function emptyScanline(width: number): Array<0> {
     return result;
 }
 
+
 export class Bitmap {
     #data: Array<Array<0 | 1>>
 
     readonly width: number;
     readonly height: number;
 
-    constructor(data: Array<Array<0 | 1>>) {
+    readonly padLeft: number;
+    readonly padTop: number;
+
+    constructor(data: Array<Array<0 | 1>>, padLeft: number, padTop: number) {
+        this.padLeft = padLeft;
+        this.padTop = padTop;
+
         if (data.length === 0) { throw new Error("no data"); }
         data.reduce((a, r) => {
             if (a === -1) { return r.length; }
@@ -59,10 +66,20 @@ export class Bitmap {
         return !!value;
     }
 
-    forEach(callback: (x: number, y: number, bitmap: this) => void): void {
+    setBit(x: number, y: number, on: boolean): void {
+        const value = this.#data[y][x];
+        if (value == null) { throw new Error(`out of range: ${ x }x${ y }`); }
+        this.#data[y][x] = on ? 1: 0;
+    }
+
+    forEach(callback: (x: number, y: number, isOn: boolean) => void, mask?: boolean): void {
         this.#data.forEach((row, y) => {
             row.forEach((bit, x) => {
-                if (bit) { callback(x, y, this); }
+                if (mask) {
+                    callback(x, y, !!bit);
+                } else if (bit) {
+                    callback(x, y, true);
+                }
             });
         });
     }
@@ -71,13 +88,17 @@ export class Bitmap {
         return this.#data.map((r) => r.slice());
     }
 
-    trim(): Bitmap {
-        let data = this.#data.slice();
+    trimmed(): Bitmap {
+        let padLeft = this.padLeft;
+        let padTop = this.padTop;
+
+        let data = this.data;
 
         while (data.length) {
             const sum = data[0].reduce((a, v) => { return a + v; }, <number>0);
             if (sum) { break; }
             data.shift();
+            padTop++;
         }
 
         while (data.length) {
@@ -90,6 +111,7 @@ export class Bitmap {
             const sum = data.reduce((a, v) => { return a + v[0]; }, <number>0);
             if (sum) { break; }
             data.forEach((v) => { v.shift(); });
+            padLeft++;
         }
 
         while (data[0].length) {
@@ -98,7 +120,90 @@ export class Bitmap {
             data.forEach((v) => { v.pop(); });
         }
 
-        return new Bitmap(data);
+        return new Bitmap(data, padLeft, padTop);
+    }
+
+    expanded(count: number): Bitmap {
+        let data = this.data;
+
+        for (let y = 0; y < data.length; y++) {
+            for (let i = 0; i < count; i++) {
+                data[y].unshift(0);
+                data[y].push(0);
+            }
+        }
+
+        for (let i = 0; i < count; i++) {
+            data.unshift(emptyScanline(data[0].length))
+            data.push(emptyScanline(data[0].length));
+        }
+
+        return new Bitmap(data, this.padLeft - count, this.padTop - count);
+    }
+
+    dump(): void {
+        console.log({
+            width: this.width, height: this.height,
+            padLeft: this.padLeft, padTop: this.padTop
+        });
+        for (let y = 0; y < this.height; y++) {
+            console.log(this.#data[y].map((i) => (i ? "#": " ")).join(" "))
+        }
+    }
+
+    clone(): Bitmap {
+        return new Bitmap(this.data, this.padLeft, this.padTop);
+    }
+
+    paste(bitmap: Bitmap, x: number, y: number, mask?: boolean): void {
+        x += bitmap.padLeft;
+        y += bitmap.padTop;
+        bitmap.forEach((bx, by, isOn) => {
+            this.setBit(bx + x, by + y, isOn);
+        }, mask);
+    }
+
+    outlined(radius: number): Bitmap {
+        let result = this.expanded(radius);
+
+        const dot = Bitmap.createDot(radius);
+
+        this.forEach((x, y) => { result.paste(dot, x, y); });
+
+        // Clear all bits that the font would fill in
+        this.forEach((x, y) => result.setBit(x + radius, y + radius, false));
+
+        return result;
+    }
+
+    static createDot(radius: number): Bitmap {
+        let size = (radius * 2) + 1;
+
+        const data: Array<Array<0 | 1>> = [ ];
+        for (let i = 0; i < size; i++) {
+            data.push(emptyScanline(size));
+        }
+        const dot = new Bitmap(data, 0, 0);
+
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const dx = (x - radius + (x <= radius ? 0.25: -0.25));
+                const dy = (y - radius + (y <= radius ? 0.25: -0.25));
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d <= radius) { dot.setBit(x, y, true); }
+            }
+        }
+
+        return dot;
+    }
+
+    static create(width: number, height: number): Bitmap {
+        const data: Array<Array<0 | 1>> = [ ];
+        for (let i = 0; i < height; i++) {
+            data.push(emptyScanline(width));
+        }
+
+        return new Bitmap(data, 0, 0);
     }
 
     static fromData(data: Record<string, string>, bounds?: Box): Bitmap {
@@ -142,7 +247,7 @@ export class Bitmap {
             y++;
         }
 
-        return new Bitmap(bitmap);
+        return new Bitmap(bitmap, 0, 0);
     }
 }
 
@@ -225,3 +330,7 @@ export class Font {
         return new Font(data, filename);
     }
 }
+
+//const dot = Bitmap.createDot(2);
+//console.log(dot);
+//dot.dump();
