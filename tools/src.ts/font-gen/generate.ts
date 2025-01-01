@@ -12,7 +12,7 @@ import type { Font } from "./bdf.js";
 const BLACK = "#000000", WHITE = "#ffffff";
 const text0 = "The quick brown fox jumps over the lazy dog.";
 
-const padding = [ 50, 25, 25, 25 ];
+const padding = [ 0, 25, 0, 25 ];
 
 
 
@@ -22,11 +22,11 @@ export async function createFontPreview(font: Font, text: string, isDark: boolea
 
     const preview = new Jimp({
         width: (width + 1) * 48 + padding[1] + padding[3],
-        height: (height + 1) * 4 + padding[0] + padding[2],
+        height: 8 * (height + 1),
         color: (isDark ? BLACK: WHITE)
     });
     const setPixel = (x: number, y: number) => {
-        const offset = (padding[0] + y) * preview.bitmap.width + (padding[1] + x);
+        const offset = y * preview.bitmap.width + (padding[1] + x);
         preview.bitmap.data[4 * offset] = (c >> 16) & 0xff;
         preview.bitmap.data[4 * offset + 1] = (c >> 8) & 0xff;
         preview.bitmap.data[4 * offset + 2] = (c >> 0) & 0xff;
@@ -39,22 +39,21 @@ export async function createFontPreview(font: Font, text: string, isDark: boolea
         //setPixel(bx + width - 1, by + height - 1);
     };
 
-    //{
-    //    const font = await Jimp.loadFont(isDark ? Jimp.FONT_SANS_16_WHITE: Jimp.FONT_SANS_16_BLACK);
-    //    preview.print({ font, x: padding[3], y: 20, text });
-    //}
+    for (let i = 0; i < text.length; i++) {
+        putChar(text[i], i * (width + 1), 1 * (height + 1));
+    }
 
     for (let i = 33; i < 127; i++) {
         const chr = String.fromCharCode(i);
         const index = i - 33;
         const bx = (index % 48) * (width + 1);
-        const by = Math.trunc(index / 48) * (height + 1);
+        const by = (3 + Math.trunc(index / 48)) * (height + 1);
 
         putChar(chr, bx, by);
     }
 
     for (let i = 0; i < text0.length; i++) {
-        putChar(text0[i], i * (width + 1), 3 * (height + 1));
+        putChar(text0[i], i * (width + 1), 6 * (height + 1));
     }
 
     return preview;
@@ -66,7 +65,7 @@ async function createPreview(isDark: boolean) {
     for (const size of FontSizes) {
         for (const weight of FontWeights) {
             const font = loadFont(size, weight);
-            const text = `font-${ size }pt-${ weight }`;
+            const text = `font-${ size.toLowerCase() }-${ weight.toLowerCase() }`;
             previews.push(await createFontPreview(font, text, isDark));
         }
     }
@@ -204,7 +203,7 @@ function getValue(v: string): number {
         ]);
         totalSize += 1;
 
-        addData(`Glyph Data:`, indices.map((index, i) => {
+        addData(`Glyph Info:`, indices.map((index, i) => {
             return (widths[i] << 27) |
                 (heights[i] << 22) |
                 ((padLefts[i] + 31) << 16) |
@@ -213,7 +212,7 @@ function getValue(v: string): number {
         }));
         totalSize += indices.length;
 
-        addData("Font Data:", data, `Font Bytes: ${ data.length * 4 }`);
+        addData("Bitmap Data:", data, `Font Bytes: ${ data.length * 4 }`);
         totalSize += data.length;
     };
 
