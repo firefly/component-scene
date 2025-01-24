@@ -5,6 +5,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "firefly-color.h"
@@ -17,14 +18,14 @@ typedef void* FfxScene;
 // Scene Node Object (opaque; do not inspect or rely on internals)
 typedef void* FfxNode;
 
+
 // Point
 typedef struct FfxPoint {
     int16_t x;
     int16_t y;
 } FfxPoint;
 
-extern const FfxPoint PointZero;
-//extern const FfxPoint PointHidden;
+//extern const FfxPoint PointZero;
 
 // Size
 typedef struct FfxSize {
@@ -32,44 +33,47 @@ typedef struct FfxSize {
     uint16_t height;
 } FfxSize;
 
-extern const FfxSize SizeZero;
+//extern const FfxSize SizeZero;
+
+
+// [ 1 bit: isBold ] [ 1 bit: reserved ] [ 6 bites: size ]
+typedef enum FfxFont {
+    FfxFontLarge     = 0x18,    // 24-point
+    FfxFontMedium    = 0x14,    // 20-point
+    FfxFontSmall     = 0x0f,    // 15-point
+    FfxFontSizeMask  = 0x2f,
+
+    FfxFontBold      = 0x80,    // Bold
+} FfxFont;
+
 
 // Animation
 
 typedef enum FfxSceneActionStop {
+    // Indicates the animation ran to completion as normal
     FfxSceneActionStopNormal      = 0,
+
+    // Indicates the animation was stopped and left at its current value
     FfxSceneActionStopCurrent     = (1 << 1) | (0 << 0),
+
+    // Indicates the animation was stopped and jumped to the end value
     FfxSceneActionStopFinal       = (1 << 1) | (1 << 0),
 } FfxSceneActionStop;
 
-/*
-typedef enum SceneActionOption {
-    SceneActionOptionNone      = 0,
-    SceneActionOptionReverse   = (1 << 3),
-    SceneActionOptionRepeat    = (1 << 4),
-} SceneActionOption;
-*/
+typedef void (*FfxSceneAnimationCompletion)(FfxNode node,
+  FfxSceneActionStop stopType, void *arg);
 
-/*
-typedef enum SceneNodeEffect {
-    SceneNodeEffectDarken     = 1,
-    SceneNodeEffectLighten    = 2,
-} SceneNodeEffect;
-*/
 
-typedef void (*FfxSceneAnimationCompletion)(FfxScene scene,
-  FfxNode node, FfxSceneActionStop stopType);
+typedef uint8_t* (*FfxSceneAllocFunc)(size_t length, void *arg);
+typedef void (*FfxSceneFreeFunc)(uint8_t* pointer, void* arg);
 
-// typedef enim SceneFilter {
-//     SceneFilterDarken,
-//     SceneFilterLighten,
-// //    SceneFilterBlur
-// } SceneFilter;
 
+///////////////////////////////
+// Scene
 
 // Allocate a new Scene
-FfxScene ffx_scene_init(uint32_t nodeCount);
-//Scene scene_initStatic(uint8_t *data, uint32_t dataLength);
+FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
+  FfxSceneFreeFunc freeFunc, void *allocArg);
 
 // Release a Screen created using scene_init.
 void ffx_scene_free(FfxScene scene);
@@ -78,127 +82,139 @@ void ffx_scene_free(FfxScene scene);
 void ffx_scene_dump(FfxScene scene);
 
 // Rendering
-uint32_t ffx_scene_sequence(FfxScene scene);
-void ffx_scene_render(FfxScene scene, uint8_t *fragment, int32_t y0,
-  int32_t height);
+void ffx_scene_sequence(FfxScene scene);
+void ffx_scene_render(FfxScene scene, uint16_t *fragment, FfxPoint origin,
+  FfxSize size);
 
 // Get the root node of the scene
 FfxNode ffx_scene_root(FfxScene scene);
 
-// Returns true if node is running any animations
-uint32_t ffx_scene_isRunningAnimation(FfxNode node);
-void ffx_scene_advanceAnimations(FfxNode _node, uint32_t advance);
 
-// Stop all current animations on a node
-void ffx_scene_stopAnimations(FfxNode node, FfxSceneActionStop stopType);
+///////////////////////////////
+// Node
 
-// Schedule the node to be freed on the next sequence
-void ffx_scene_nodeFree(FfxNode node);
+/**
+ * Schedule the %%node%% to be removed on the next sequence. If
+ * %%dealloc%% the node will also have its destructor called and
+ * be freed. Otherwise, it may be added back to the scene after
+ * the next sequence. @TODO: allow this? Adding it before would
+ * be catastoropic.
+ */
+void ffx_sceneNode_remove(FfxNode node, bool dealloc);
 
-//int32_t ffx_scene_nodeTag(FfxNode node);
-//int32_t ffx_scene_nodeSetTag(FfxNode node, int32_t tag);
+FfxNode ffx_sceneNode_getScene(FfxNode node);
 
-// Move a node within the scene (with respect to its parents in the hierarchy)
-//void ffx_scene_nodeSetPosition(FfxNode node, FfxPoint pos);
-FfxPoint* ffx_scene_nodePosition(FfxNode node);
+FfxPoint ffx_sceneNode_getPosition(FfxNode node);
+void ffx_sceneNode_setPosition(FfxNode node, FfxPoint pos);
+void ffx_sceneNode_offsetPosition(FfxNode node, FfxPoint offset);
 
-void ffx_scene_nodeSetPosition(FfxNode node, FfxPoint point);
 
-uint32_t ffx_scene_nodeAnimatePosition(FfxScene scene, FfxNode node,
-    FfxPoint target, uint32_t duration, FfxCurveFunc curve,
-    FfxSceneAnimationCompletion onComplete);
+///////////////////////////////
+// Group Node
 
-// Create a new GroupNode
 FfxNode ffx_scene_createGroup(FfxScene scene);
 
-// Add a child to the end of the children for a parent GroupNode (created using scene_createGroup)
-void ffx_scene_appendChild(FfxNode parent, FfxNode child);
+FfxNode ffx_sceneGroup_getFirstChild(FfxNode node);
+void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child);
 
-FfxNode ffx_scene_groupFirstChild(FfxNode _node);
-FfxNode ffx_scene_nodeNextSibling(FfxNode _node);
 
-// Create a FillNode, filling the entire screen with color
+///////////////////////////////
+// Node: Animations
+
+//void ffx_sceneNode_beginAnimations(FfxNode node, uint32_t delay,
+//  uint32_t duration, FfxCurve curve, FfxNodeAnimationsComplete onComplete,
+//  void *arg);
+//void ffx_sceneNode_commitAnimations(FfxNode node);
+
+// IDEA:
+//typedef void (*FfxNodeAnimateFunc)(FfxNode node, void *arg);
+//void ffx_sceneNode_animate(FfxNode node, uint32_t delay, uint32_t duration,
+//  FfxCurve curve, FfxNodeAnimateFunc animateFunc,
+//  FfxNodeAnimationsCompleteFunc onComplete);
+
+// IDEA2:
+// Allocate immediately; use AnimationFunc for item to snapshot
+// anything necessary and that can be updated in the setters;
+// then the setters update that object.
+
+typedef void (*FfxNodeAnimationCompleteFunc)(FfxNode node, void* arg,
+  FfxSceneActionStop stopReason);
+
+typedef struct FfxAnimation {
+    uint32_t delay;         // Default: 0
+    uint32_t duration;      // Default: 0
+    FfxCurveFunc curve ;        // Default: Linear
+    FfxNodeAnimationCompleteFunc onComplete; // Default: NULL
+    void* arg;              // Default: NULL
+} FfxAnimation;
+
+typedef void (*FfxNodeAnimateFunc)(FfxNode node, FfxAnimation *animate,
+  void *arg);
+
+void ffx_sceneNode_animate(FfxNode node, FfxNodeAnimateFunc animationsFunc,
+  void *arg);
+
+
+
+// Returns true if node is running any animations
+uint32_t ffx_sceneNode_isAnimating(FfxNode node);
+
+void ffx_sceneNode_advanceAnimations(FfxNode node, uint32_t advance);
+
+// Stop all current animations on a node
+void ffx_sceneNode_stopAnimations(FfxNode node, bool completeAnimations);
+
+
+///////////////////////////////
+// Fill
+
 FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color);
-color_ffxt* ffx_scene_fillColor(FfxNode node);
 
-uint32_t ffx_scene_fillAnimateColor(FfxScene scene, FfxNode node,
-    color_ffxt target, uint32_t duration, FfxCurveFunc curve,
-    FfxSceneAnimationCompletion onComplete);
+color_ffxt ffx_sceneFill_getColor(FfxNode node);
+void ffx_sceneFill_setColor(FfxNode node, color_ffxt color);
 
 
-// Create a BoxNode with width and height filled with color.
-FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size, color_ffxt color);
-color_ffxt* ffx_scene_boxColor(FfxNode node);
-FfxSize* ffx_scene_boxGetSize(FfxNode node);
+///////////////////////////////
+// Box
 
-uint32_t ffx_scene_boxAnimateColor(FfxScene scene, FfxNode node,
-    color_ffxt target, uint32_t duration, FfxCurveFunc curve,
-    FfxSceneAnimationCompletion onComplete);
-uint32_t ffx_scene_boxAnimateSize(FfxScene scene, FfxNode node,
-    FfxSize target, uint32_t duration, FfxCurveFunc curve,
-    FfxSceneAnimationCompletion onComplete);
+FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size);
+
+color_ffxt ffx_sceneBox_getColor(FfxNode node);
+void ffx_sceneBox_setColor(FfxNode node, color_ffxt color);
+
+FfxSize ffx_sceneBox_getSize(FfxNode node);
+void ffx_sceneBox_setSize(FfxNode node, FfxSize size);
 
 
-// Images
-FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
-  size_t dataLength);
-uint16_t* ffx_scene_imageData(FfxNode node);
-void ffx_scene_imageSetData(FfxNode node, const uint16_t *data,
-  size_t dataLength);
-color_ffxt* ffx_scene_imageColor(FfxNode node);
+///////////////////////////////
+// Label
 
-//FfxSize ffx_scene_imageSize(FfxNode node);
+FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text,
+  size_t length);
 
-uint32_t ffx_scene_imageAnimateAlpha(FfxScene scene, FfxNode node, uint32_t target, uint32_t duration, FfxCurveFunc curve, FfxSceneAnimationCompletion onComplete);
+size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length);
+void ffx_sceneLabel_setText(FfxNode node, const char* data, size_t length);
 
-// A spritesheet is a 32x32 tile node where each tile is an index into the spriteData for that position
-// - The spriteData is a 256 2-byte entries
-// Node scene_createSpritesheet(Scene scene, uint8_t *spriteData);
-// void scene_spriteheetSetSprite(Node spritesheet, uint8_t ix, uint8_t iy, uint8_t index);
-// uint8_t *scene_spritesheetGetIndices(Node spritesheet);
+FfxFont ffx_sceneLabel_getFont(FfxNode node);
+void ffx_sceneLabel_setFont(FfxNode node, FfxFont font);
 
-/********************************************************
- * TEXT NODE
- ********************************************************/
+color_ffxt ffx_sceneLabel_getTextColor(FfxNode node);
+void ffx_sceneLabel_setTextColor(FfxNode node, color_ffxt color);
 
-typedef enum FfxFont {
-    FfxFontBig     = 0x0f,    // 32-point
-    FfxFontMedium  = 0x0b,    // 24-point
-    FfxFontSmall   = 0x08,    // 18-point
-    FfxFontBold    = 0x10,    // Bold
-} FfxFont;
+color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node);
+void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
 
-// Create a TextNode backed by static content, up to dataLength bytes long.
-// Text can NOT be updated using scene_setText and must NOT change.
-FfxNode ffx_scene_createText(FfxScene scene, const char* data,
-  uint32_t dataLength);
 
-FfxNode ffx_scene_createTextStr(FfxScene scene, const char* test);
+///////////////////////////////
+// Image
 
-// Create a TextNode backed by provided data, up to floor(dataLength / 2)
-// long, which can be updated using scene_textSetText. The data is split
-// into two fragments, which are swapped on sequencing. If there is data
-// present, the first half will be rendered.
-FfxNode ffx_scene_createTextFlip(FfxScene scene, char* data,
-  uint32_t dataLength);
+FfxNode ffx_scene_createImage(FfxScene scene, uint8_t *data, size_t length);
 
-// Create a TextNode which will allocate the necessary memory for
-// dataLength strings, which can be updated using scene_textSetText.
-FfxNode ffx_scene_createTextAlloc(FfxScene scene, uint32_t textLength);
+color_ffxt ffx_sceneImage_getTint(FfxNode node);
+void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
 
-void ffx_scene_textSetText(FfxNode node, const char* const text,
-  uint32_t length);
-void ffx_scene_textSetTextInt(FfxNode node, int32_t value);
-void ffx_scene_textSetColor(FfxNode node, rgb16_ffxt color);
-//void scene_textSetColorAlpha(Node node, rgba_t color);
-
-size_t ffx_scene_textGetText(FfxNode node, char *text, size_t length);
-
-uint32_t ffx_scene_textAnimateColor(FfxScene scene, FfxNode node,
-    rgb16_ffxt target, uint32_t duration, FfxCurveFunc curve,
-    FfxSceneAnimationCompletion onComplete);
-//uint32_t scene_textAnimateColorAlpha(Scene scene, Node node,
-//    rgba_t target, uint32_t duration, CurveFunc curve, SceneAnimationCompletion onComplete);
+uint8_t* ffx_sceneImage_getData(FfxNode node);
+void ffx_sceneImage_setData(FfxNode node, const char* data, size_t length);
 
 
 

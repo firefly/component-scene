@@ -22,9 +22,9 @@
 
 
 // From scene.c
-void _freeSequence(FfxScene scene, FfxPoint worldPos, FfxNode node);
+//void _freeSequence(FfxScene scene, FfxPoint worldPos, FfxNode node);
 
-
+/*
 static void _updateAnimations(_Scene *scene, _Node *node) {
 
     _Node *animate = node->animate.node;
@@ -102,103 +102,123 @@ static void _updateAnimations(_Scene *scene, _Node *node) {
         animate = nextAnimate;
     }
 }
+*/
 
-void _groupSequence(FfxScene _scene, FfxPoint worldPos, FfxNode _node) {
-    _Scene *scene = _scene;
-    _Node *node = _node;
 
-    FfxPoint pos = node->pos;
+typedef struct GroupNode {
+    FfxNode firstChild;
+    FfxNode lastChild;
+} GroupNode;
+
+static void destoryFunc(FfxNode node) {
+    GroupNode *state = ffx_sceneNode_getState(node);
+
+    FfxNode *child = state->firstChild;
+    while (child) {
+        FfxNode *nextChild = ffx_sceneNode_getNextSibling(child);
+        ffx_sceneNode_free(child);
+        child = nextChild;
+    }
+}
+
+static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
+    FfxPoint pos = ffx_sceneNode_getPosition(node);
     worldPos.x += pos.x;
     worldPos.y += pos.y;
 
-    // I have children; visit them each
-    _Node *lastChild = NULL;
-    _Node *child = node->a.ptr;
-    while (child) {
-        _Node *nextChild = child->nextNode;
+    GroupNode *state = ffx_sceneNode_getState(node);
 
-        if (child->func.sequenceFunc == _freeSequence) {
+    // I have children; visit them each
+    FfxNode *previousChild = NULL;
+    FfxNode *child = state->firstChild;
+    while (child) {
+        FfxNode *nextChild = ffx_sceneNode_getNextSibling(child);
+
+        if (ffx_sceneNode_hasFlags(child, NodeFlagRemove)) {
             // Remove child
 
             // The tail is the child; point the tail to the previous child (NULL if firstChild)
-            if (node->b.ptr == child) { node->b.ptr = lastChild; }
+            if (state->lastChild == child) { state->lastChild = previousChild; }
 
-            if (lastChild) {
-                lastChild->nextNode = child->nextNode;
+            if (previousChild) {
+                // Not the first child; remove from the middle
+                ((_Node*)previousChild)->nextSibling = nextChild;
             } else {
-                node->a.ptr = child->nextNode;
+               // First child
+                state->firstChild = nextChild;
             }
 
-            _freeNode(scene, child);
+            ((_Node*)child)->nextSibling = NULL;
+
+            if (ffx_sceneNode_hasFlags(child, NodeFlagFree)) {
+                ffx_sceneNode_free(child);
+            } else {
+                ffx_sceneNode_clearFlags(child, NodeFlagHasParent |
+                  NodeFlagRemove | NodeFlagFree);
+            }
 
         } else {
             // Update the animations
-            _updateAnimations(scene, child);
+            //_updateAnimations(scene, child);
 
             // Sequence the child
-            child->func.sequenceFunc(_scene, worldPos, child);
-            lastChild = child;
+            ffx_sceneNode_sequence(child, worldPos);
+            previousChild = child;
         }
 
         child = nextChild;
     }
 }
 
-static FfxNode _debug(FfxNode node, FfxNodeFunc func, char *descr,
-  size_t length) {
-
-    if (func.sequenceFunc == _groupSequence) {
-        FfxPoint *pos = ffx_scene_nodePosition(node);
-        FfxProperty *a = ffx_scene_nodePropertyA(node);
-        snprintf(descr, length,
-          "Group Sequence Node pos=(%d, %d)", pos->x, pos->y);
-        return a->ptr;
-    }
-
-    return NULL;
+static void renderFunc(void *_render, uint16_t *frameBuffer,
+  FfxPoint origin, FfxSize size) {
 }
+
+static void dumpFunc(FfxNode node, int indent) {
+
+    FfxPoint pos = ffx_sceneNode_getPosition(node);
+
+    for (int i = 0; i < indent; i++) { printf("  "); }
+    printf("<Group pos=%dx%x>\n", pos.x, pos.y);
+
+    GroupNode *state = ffx_sceneNode_getState(node);
+    FfxNode *child = state->firstChild;
+    while (child) {
+        ffx_sceneNode_dump(child, indent + 1);
+        child = ffx_sceneNode_getNextSibling(child);
+    }
+}
+
+static const _FfxNodeVTable vtable = {
+    .destroyFunc = destoryFunc,
+    .sequenceFunc = sequenceFunc,
+    .renderFunc = renderFunc,
+    .dumpFunc = dumpFunc,
+};
 
 FfxNode ffx_scene_createGroup(FfxScene scene) {
-    REGISTER_DEBUG(_debug);
-
-    FfxProperty a, b;
-    a.ptr = b.ptr = NULL;
-    return ffx_scene_createNode(scene, _groupSequence, a, b);
+    return ffx_scene_createNode(scene, &vtable, sizeof(GroupNode));
 }
 
-/**
- *  Adds a child to a parent GroupNode (created using scene_createGroup).
- *
- *  NOTE: Child MUST NOT already have a parent
- */
-void ffx_scene_appendChild(FfxNode _parent, FfxNode _child) {
-    if (_parent == NULL || _child == NULL) { return; }
+FfxNode ffx_sceneGroup_getFirstChild(FfxNode node) {
+    GroupNode *state = ffx_sceneNode_getState(node);
+    return state->firstChild;
+}
 
-    _Node *parent = _parent;
-    _Node *child = _child;
-
-    child->nextNode = NULL;
-
-    if (parent->a.ptr == NULL) {
-        // First child
-        parent->a.ptr = parent->b.ptr = child;
-
-    } else {
-        // Append to the child to the end
-        _Node *lastChild = parent->b.ptr;
-        lastChild->nextNode = child;
-        parent->b.ptr = child;
+void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child) {
+    if (ffx_sceneNode_hasFlags(child, NodeFlagHasParent)) {
+        printf("child already has a parent; not added\n");
+        return;
     }
-}
+    ffx_sceneNode_setFlags(child, NodeFlagHasParent);
 
-FfxNode ffx_scene_groupFirstChild(FfxNode _node) {
-    if (_node == NULL) { return NULL; }
-    _Node *node = _node;
-    return node->a.ptr;
-}
-
-FfxNode ffx_scene_nodeNextSibling(FfxNode _node) {
-    if (_node == NULL) { return NULL; }
-    _Node *node = _node;
-    return node->nextNode;
+    GroupNode *state = ffx_sceneNode_getState(node);
+    if (state->firstChild == NULL) {
+        state->firstChild = state->lastChild = child;
+    } else {
+        FfxNode _lastChild = state->lastChild;
+        _Node *lastChild = _lastChild;
+        lastChild->nextSibling = child;
+        state->lastChild = child;
+    }
 }

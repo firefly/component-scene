@@ -11,54 +11,69 @@
 #include "firefly-scene-private.h"
 
 
-static void _render(FfxPoint pos, FfxProperty a, FfxProperty b, uint16_t *_frameBuffer, int32_t y0, int32_t height) {
-    uint32_t c = ffx_color_rgb16(a.color);
+typedef struct FillNode {
+    color_ffxt color;
+} FillNode;
+
+static void destoryFunc(FfxNode node) { }
+
+static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
+    FillNode *state = ffx_sceneNode_getState(node);
+
+    FillNode *render = ffx_scene_createRender(node, sizeof(FillNode));
+    render->color = state->color;
+}
+
+static void renderFunc(void *_render, uint16_t *_frameBuffer,
+  FfxPoint origin, FfxSize size) {
+
+    FillNode *render = _render;
+
+    uint32_t c = ffx_color_rgb16(render->color);
     c = ((c << 16) | c);
 
     uint32_t *frameBuffer = (uint32_t*)_frameBuffer;
 
-    for (uint32_t i = 0; i < 240 * height / 2; i++) { *frameBuffer++ = c; }
+    // @TODO: this doesn't work in general anymore; render line-by-line
+
+    uint32_t count = size.width * size.height / 2;
+    printf("FILL: c=%ld\n", count);
+
+    for (uint32_t i = 0; i < count; i++) { *frameBuffer++ = c; }
 }
 
-static void _sequence(FfxScene scene, FfxPoint worldPos, FfxNode node) {
-    ffx_scene_createRenderNode(scene, node, PointZero, _render);
+static void dumpFunc(FfxNode node, int indent) {
+    FillNode *state = ffx_sceneNode_getState(node);
+
+    char colorName[COLOR_NAME_LENGTH] = { 0 };
+    ffx_color_name(state->color, colorName, sizeof(colorName));
+
+    for (int i = 0; i < indent; i++) { printf("  "); }
+    printf("<Fill color=%s>\n", colorName);
 }
 
-static FfxNode _debug(FfxNode node, FfxNodeFunc func, char *descr,
-  size_t length) {
-
-    if (func.sequenceFunc == _sequence) {
-        FfxProperty *a = ffx_scene_nodePropertyA(node);
-
-        char color[32];
-        ffx_color_name(a->color, color, sizeof(color));
-
-        snprintf(descr, length,
-          "Fill Sequence Node: color=%s", color);
-
-    } else if (func.renderFunc == _render) {
-        FfxProperty *a = ffx_scene_nodePropertyA(node);
-
-        char color[32];
-        ffx_color_name(a->color, color, sizeof(color));
-
-        snprintf(descr, length,
-          "Fill Render Node: color=%s", color);
-    }
-
-    return NULL;
-}
+static const _FfxNodeVTable vtable = {
+    .destroyFunc = destoryFunc,
+    .sequenceFunc = sequenceFunc,
+    .renderFunc = renderFunc,
+    .dumpFunc = dumpFunc,
+};
 
 FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
-    REGISTER_DEBUG(_debug);
+    FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(FillNode));
 
-    FfxProperty a;
-    a.color = color;
+    FillNode *state = ffx_sceneNode_getState(node);
+    state->color = color;
 
-    return ffx_scene_createNode(scene, _sequence, a, a);
+    return node;
 }
 
-color_ffxt* scene_fillColor(FfxNode node) {
-    FfxProperty *a = ffx_scene_nodePropertyA(node);
-    return &a->color;
+color_ffxt ffx_sceneFill_getColor(FfxNode node) {
+    FillNode *state = ffx_sceneNode_getState(node);
+    return state->color;
+}
+
+void ffx_sceneFill_setColor(FfxNode node, color_ffxt color) {
+    FillNode *state = ffx_sceneNode_getState(node);
+    state->color = color;
 }

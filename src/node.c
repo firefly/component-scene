@@ -1,42 +1,111 @@
-
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "firefly-scene-private.h"
 
+#include "scene.h"
 
-static void _nodeAnimatePositionHoriz(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
-    FfxPoint *pos = ffx_scene_nodePosition(node);
-    pos->x = p0.point.x + scalarfx(p1.point.x - p0.point.x, t);
+
+//////////////////////////
+// Life-cycle
+
+FfxNode ffx_scene_createNode(FfxScene _scene, const _FfxNodeVTable *vtable,
+  size_t stateSize) {
+    _Scene *scene = _scene;
+
+    size_t size = sizeof(_Node) + stateSize;
+
+    _Node *node = (void*)scene->allocFunc(size, scene->allocArg);
+    memset(node, 0, size);
+
+    node->vtable = vtable;
+    node->scene = scene;
+
+    return node;
 }
 
-static void _nodeAnimatePositionVert(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
-    FfxPoint *pos = ffx_scene_nodePosition(node);
-    pos->y = p0.point.y + scalarfx(p1.point.y - p0.point.y, t);
+void* ffx_sceneNode_getState(FfxNode _node) {
+    _Node *node = _node;
+    return &node[1];
 }
 
-static void _nodeAnimatePosition(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
-    FfxPoint *pos = ffx_scene_nodePosition(node);
-    pos->x = p0.point.x + scalarfx(p1.point.x - p0.point.x, t);
-    pos->y = p0.point.y + scalarfx(p1.point.y - p0.point.y, t);
+void ffx_sceneNode_free(FfxNode _node) {
+    _Node *node = _node;
+
+    node->vtable->destroyFunc(_node);
+
+    _Scene *scene = node->scene;
+    scene->freeFunc((void*)node, scene->allocArg);
 }
 
-uint32_t ffx_scene_nodeAnimatePosition(FfxScene scene, FfxNode node, FfxPoint target, uint32_t duration, FfxCurveFunc curve, FfxSceneAnimationCompletion onComplete) {
-    FfxPoint *pos = ffx_scene_nodePosition(node);
+void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
+    _Node *node = _node;
 
-    FfxAnimateFunc animateFunc = _nodeAnimatePosition;
-    if (pos->x == target.x) {
-        animateFunc = _nodeAnimatePositionVert;
-    } else if (pos->y == target.y) {
-        animateFunc = _nodeAnimatePositionHoriz;
+    if (dealloc) {
+        node->flags |= NodeFlagRemove | NodeFlagFree;
+    } else {
+        node->flags |= NodeFlagRemove;
     }
+}
 
-    FfxProperty start, end;
-    start.point = *pos;
-    end.point = target;
+//////////////////////////
+// Flags
 
-    FfxNode animate = ffx_scene_createAnimationNode(scene, node, start, end,
-      duration, animateFunc, curve, onComplete);
-    if (animate == NULL) { return 0; }
+NodeFlag ffx_sceneNode_hasFlags(FfxNode _node, NodeFlag flags) {
+    _Node *node = _node;
+    return node->flags & flags;
+}
 
-    return 1;
+void ffx_sceneNode_setFlags(FfxNode _node, NodeFlag flags) {
+    _Node *node = _node;
+    node->flags |= flags;
+}
+
+void ffx_sceneNode_clearFlags(FfxNode _node, NodeFlag flags) {
+    _Node *node = _node;
+    node->flags &= ~flags;
+}
+
+
+//////////////////////////
+// VTable access
+
+void ffx_sceneNode_sequence(FfxNode _node, FfxPoint worldPoint) {
+    _Node *node = _node;
+    node->vtable->sequenceFunc(_node, worldPoint);
+}
+
+void ffx_sceneNode_dump(FfxNode _node, size_t indent) {
+    _Node *node = _node;
+    node->vtable->dumpFunc(_node, indent);
+}
+
+//////////////////////////
+// Properties
+
+FfxNode ffx_sceneNode_getScene(FfxNode _node) {
+    _Node *node = _node;
+    return node->scene;
+}
+
+FfxPoint ffx_sceneNode_getPosition(FfxNode _node) {
+    _Node *node = _node;
+    return node->position;
+}
+
+void ffx_sceneNode_setPosition(FfxNode _node, FfxPoint pos) {
+    _Node *node = _node;
+    node->position = pos;
+}
+
+void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
+    _Node *node = _node;
+    node->position.x += offset.x;
+    node->position.y += offset.y;
+}
+
+FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
+    _Node *node = _node;
+    return node->nextSibling;
 }

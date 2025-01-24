@@ -1,27 +1,71 @@
-// typedef struct Bounds {
-//     int16_t ix, iy;
-//     uint8_t ox, oy, w, h;
-// } Bounds;
+#include "firefly-scene-private.h"
 
-typedef struct FfxClip {
-    uint8_t srcX, srcY;
-    uint8_t dstX, dstY;
-    uint8_t width, height;
-} FfxClip;
+FfxClip ffx_scene_clip(FfxPoint origin, FfxSize size, FfxPoint vpOrigin,
+  FfxSize vpSize) {
 
-/**
- *  Given an input box (x, y, w, h) and a fragment (y0, height),
- *  update the input box values to reflect the box that is
- *  visible within the fragment (x, y, w, h).
- *
- *  Returns 1 if no part of the box overlaps the fragment.
- *
- *  int32_t ix = pos.x, iy = pos.y, w = size.width, h = size.height, ox, oy;
- *  if (calcBounds(&ix, &iy, &0x, &oy, &w, &h, y0, height)) { return; }
- }
- */
-FfxClip ffx_scene_clip(FfxPoint pos, FfxSize size, int32_t y0, int32_t height) {
-    FfxClip result = { .width = 0 };
+    FfxClip result = { 0 };
+
+    int32_t x = 0, y = 0;
+    int32_t width = size.width, height = size.height;
+
+    int32_t objX0 = origin.x, objY0 = origin.y;
+    int32_t objX1 = origin.x + size.width;
+    int32_t objY1 = origin.y + size.height;
+
+    int32_t vpX0 = vpOrigin.x, vpY0 = vpOrigin.y;
+    int32_t vpX1 = vpOrigin.x + vpSize.width;
+    int32_t vpY1 = vpOrigin.y + vpSize.height;
+
+    // The object is completely outside the viewport
+    if (objX0 >= vpX1 || objX1 < vpX0) { return result; }
+    if (objY0 >= vpY1 || objY1 < vpY0) { return result; }
+
+
+    int32_t d = objX0 - vpX0;
+    if (d < 0) {
+        // Object needs clipping to the left edge of the viewport
+        x -= d;
+        width += d;
+        vpX0 = 0;
+    } else {
+        // Viewport adjusted to left edge of object
+        vpX0 = objX0;
+    }
+
+    // Object needs clipping to the right edge of the viewport
+    d = vpX1 - objX1;
+    if (d < 0) { width += d; }
+
+
+    d = objY0 - vpY0;
+    if (d < 0) {
+        // Object needs clipping to the top edge of the viewport
+        y -= d;
+        height += d;
+        vpY0 = 0;
+    } else {
+        // Viewport adjusted to the top edge of the object
+        vpY0 = objY0;
+    }
+
+    // Object needs clipping to the bottom edge of the viewport
+    d = vpY1 - objY1;
+    if (d < 0) { height += d; }
+
+    result.x = x;
+    result.y = y;
+
+    result.vpX = vpX0;
+    result.vpY = vpY0;
+
+    result.width = width;
+    result.height = height;
+
+    return result;
+}
+/*
+FfxClip ffx_scene_clip_old(FfxPoint pos, FfxSize size, int32_t y0, int32_t height) {
+    FfxClip result = { 0 };
 
     int32_t dstY = pos.y - y0;
 
@@ -70,7 +114,7 @@ FfxClip ffx_scene_clip(FfxPoint pos, FfxSize size, int32_t y0, int32_t height) {
 
     return result;
 }
-/*
+
 uint32_t calcBounds(int32_t *_pix, int32_t *_piy, int32_t *_ox, int32_t *_oy, int32_t *_w, int32_t *_h, int32_t y0, int32_t height) {
     // The top edge is belog the fragment; skip
     int32_t py = *_piy;

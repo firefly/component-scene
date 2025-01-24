@@ -52,6 +52,8 @@ typedef uint32_t color_ffxt;
 // used for a more optimized algorithm
 //#define RGB_DARK50       (RGBA16(0,0,0,128))
 
+#define COLOR_NAME_LENGTH     (40)
+
 /**
  *  Describes %%color%% into %%name%% in upto %%length%% bytes.
  *
