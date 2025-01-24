@@ -19,59 +19,44 @@
 #include "firefly-fixed.h"
 
 
-static  void _imageRenderRGB565(FfxPoint pos, FfxProperty a, FfxProperty b,
-  uint16_t *frameBuffer, int32_t y0, int32_t height) {
+typedef struct ImageNode {
+    const uint16_t *data;
+    color_ffxt tint;
+} ImageNode;
 
-    uint16_t *data = (uint16_t*)(a.ptr);
+typedef struct ImageRender {
+    FfxPoint position;
+    const uint16_t *data;
+    color_ffxt tint;
+} ImageRender;
 
-    // printf("SS: %d %d", b.size.width, b.size.height);
 
-    // @TODO: Move quick checks to _sequence?
 
-    // The box is above the fragment or to the right of the display; skip
-    if (pos.y >= y0 + height || pos.x >= 240) { return; }
+static  void _renderRGB565(ImageRender *render, uint16_t *frameBuffer,
+  FfxPoint origin, FfxSize size) {
 
-    // Compute start y and height within the fragment
-    int32_t iy = 0;
-    int32_t oy = pos.y - y0;
-    //int32_t oh = b.size.height;
-    int32_t oh = data[2];
-    if (oy < 0) {
-        iy -= oy;
-        oh += oy;
-        oy = 0;
-    }
-    if (oh <= 0) { return; }
+    const uint16_t *data = render->data;
+    int16_t width = data[1];
 
-    // Compute the start x and width within the fragment
-    int32_t ix = 0;
-    int32_t ox = pos.x;
-    //const int32_t w = b.size.width;
-    const int32_t w = data[1];
-    int32_t ow = w;
-    if (ox < 0) {
-        ix -= ox;
-        ow += ox;
-        ox = 0;
-    }
-    if (ow <= 0) { return; }
+    FfxClip clip = ffx_scene_clip(render->position, (FfxSize){
+        .width = width, .height = data[2]
+    }, origin, size);
 
-    // Extends past the fragment bounds; shrink
-    if (oy + oh > height) { oh = height - oy; }
-    if (ox + ow > 240) { ow = 240 - ox; }
+    if (clip.width == 0) { return; }
+
 
     // Skip the header bytes
-    //ix += 3;
     data += 3;
 
-    for (int32_t y = oh; y; y--) {
-        uint16_t *output = &frameBuffer[(240 * (oy + y - 1)) + ox];
-        uint16_t *input = &data[((iy + y - 1) * w) + ix];
-        for (int32_t x = ow; x; x--) {
+    for (int32_t y = clip.height; y; y--) {
+        uint16_t *output = &frameBuffer[(240 * (clip.vpY + y - 1)) + clip.vpX];
+        const uint16_t *input = &data[((clip.y + y - 1) * width) + clip.x];
+        for (int32_t x = clip.width; x; x--) {
             *output++ = *input++;
         }
     }
 }
+/*
 
 static  void _imageRenderPal8(FfxPoint pos, FfxProperty a, FfxProperty b,
   uint16_t *frameBuffer, int32_t y0, int32_t height) {
@@ -215,10 +200,6 @@ static  void _imageRenderRGBA5654(FfxPoint pos, FfxProperty a, FfxProperty b,
     }
 }
 
-static void _imageSequenceRGB565(FfxScene scene, FfxPoint worldPos, FfxNode node) {
-    ffx_scene_createRenderNode(scene, node, worldPos, _imageRenderRGB565);
-}
-
 static void _imageSequenceRGBA5654(FfxScene scene, FfxPoint worldPos, FfxNode node) {
     // 100% transparent
     color_ffxt *color = ffx_scene_imageColor(node);
@@ -227,15 +208,7 @@ static void _imageSequenceRGBA5654(FfxScene scene, FfxPoint worldPos, FfxNode no
 
     ffx_scene_createRenderNode(scene, node, worldPos, _imageRenderRGBA5654);
 }
-
-static void _imageSequencePal8(FfxScene scene, FfxPoint worldPos, FfxNode node) {
-    // 100% transparent
-    //color_ffxt *color = ffx_scene_imageColor(node);
-    //int32_t ga = (*color >> 24);
-    //if (ga == 0) { return; }
-
-    ffx_scene_createRenderNode(scene, node, worldPos, _imageRenderPal8);
-}
+*/
 
 static FfxSize _imageValidate(const uint16_t *data, size_t dataLength) {
     FfxSize size;
@@ -245,7 +218,7 @@ static FfxSize _imageValidate(const uint16_t *data, size_t dataLength) {
 
     return size;
 }
-
+/*
 FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
   size_t dataLength) {
     //_Scene* scene = _scene;
@@ -299,7 +272,7 @@ color_ffxt* ffx_scene_imageColor(FfxNode node) {
     FfxProperty *b = ffx_scene_nodePropertyB(node);
     return &b->color;
 }
-
+*/
 /*
 FfxSize ffx_scene_imageSize(FfxNode node) {
     if (node == NULL) { return SizeZero; }
@@ -313,7 +286,7 @@ FfxSize ffx_scene_imageSize(FfxNode node) {
     return size;
 }
 */
-
+/*
 static void _nodeAnimateAlpha(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
     color_ffxt *color = ffx_scene_imageColor(node);
     int32_t c0 = p0.color >> 24, c1 = p1.color >> 24;
@@ -333,4 +306,88 @@ uint32_t ffx_scene_imageAnimateAlpha(FfxScene scene, FfxNode node, uint32_t targ
     if (animate == NULL) { return 0; }
 
     return 1;
+}
+*/
+//////
+
+static void destroyFunc(FfxNode node) {
+}
+
+static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
+    ImageNode *state = ffx_sceneNode_getState(node);
+
+    FfxPoint pos = ffx_sceneNode_getPosition(node);
+    pos.x += worldPos.x;
+    pos.y += worldPos.y;
+
+    ImageRender *render = ffx_scene_createRender(node, sizeof(ImageRender));
+    render->data = state->data;
+    render->tint = state->tint;
+    render->position = pos;
+}
+
+static void renderFunc(void *_render, uint16_t *frameBuffer,
+  FfxPoint origin, FfxSize size) {
+
+    ImageRender *render = _render;
+
+    if ((render->data[0] & 0x0f) == 0x05) {
+        printf("@TODO: RGBA5654\n");
+        //return ffx_scene_createNode(scene, _imageSequenceRGBA5654, a, b);
+    } else if ((render->data[0] & 0x0f) == 0x04) {
+        _renderRGB565(render, frameBuffer, origin, size);
+        //return ffx_scene_createNode(scene, _imageSequenceRGB565, a, b);
+    } else if ((render->data[0] & 0xff) == 0x38) {
+        printf("@TODO: PAL8\n");
+        //return ffx_scene_createNode(scene, _imageSequencePal8, a, b);
+    }
+
+}
+
+static void dumpFunc(FfxNode node, int indent) {
+    FfxPoint pos = ffx_sceneNode_getPosition(node);
+
+    ImageNode *state = ffx_sceneNode_getState(node);
+
+    FfxSize size = _imageValidate(state->data, 3);
+
+    for (int i = 0; i < indent; i++) { printf("  "); }
+    printf("<Image pos=%dx%d size=%dx%x image=%p>\n", pos.x, pos.y,
+      size.width, size.height, state->data);
+}
+
+static const _FfxNodeVTable vtable = {
+    .destroyFunc = destroyFunc,
+    .sequenceFunc = sequenceFunc,
+    .renderFunc = renderFunc,
+    .dumpFunc = dumpFunc,
+};
+
+FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
+  size_t dataLength) {
+
+    FfxSize size = _imageValidate(data, dataLength);
+    if (size.width == 0 || size.height == 0) { return NULL; }
+
+    FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(ImageNode));
+
+    ImageNode *state = ffx_sceneNode_getState(node);
+    state->data = data;
+
+    return node;
+}
+
+const uint16_t* ffx_sceneImage_getImage(FfxNode node) {
+    ImageNode *state = ffx_sceneNode_getState(node);
+    return state->data;
+}
+
+color_ffxt ffx_sceneImage_getTint(FfxNode node) {
+    ImageNode *state = ffx_sceneNode_getState(node);
+    return state->tint;
+}
+
+void ffx_sceneImage_setTint(FfxNode node, color_ffxt tint) {
+    ImageNode *state = ffx_sceneNode_getState(node);
+    state->tint = tint;
 }
