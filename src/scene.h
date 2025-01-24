@@ -9,8 +9,8 @@ extern "C" {
 
 
 
-struct _Node;
-struct _Scene;
+struct Node;
+struct Scene;
 
 
 typedef enum NodeFlag {
@@ -37,30 +37,34 @@ void ffx_sceneNode_clearFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
 void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
-typedef struct _Node {
-    const _FfxNodeVTable* vtable;
-    struct _Scene *scene;
-    FfxPoint position;
-    uint32_t flags;
-    //uint32_t state; set animateFunc to NULL to indicate start of block
-//    _FfxAnimation *animationHead;
-    FfxNode nextSibling;
-} _Node;
-
-struct Render;
+typedef struct Animation {
+    struct Animation *nextAnimation;
+    FfxAnimation animation;
+} Animation;
 
 typedef struct Render {
     struct Render *nextRender;
     _FfxNodeRenderFunc renderFunc;
 } Render;
 
-typedef struct _Scene {
+typedef struct Node {
+    const _FfxNodeVTable* vtable;
+    struct Scene *scene;
+    FfxPoint position;
+    uint32_t flags;
+    Animation *animations;
+    FfxNode nextSibling;
+} Node;
+
+struct Render;
+
+typedef struct Scene {
     FfxSceneAllocFunc allocFunc;
     FfxSceneFreeFunc freeFunc;
     void *allocArg;
 
     // The root (group) node
-    _Node *root;
+    Node *root;
 
     // Gloabl tick
     int32_t tick;
@@ -69,7 +73,7 @@ typedef struct _Scene {
     Render *renderHead;
     Render *renderTail;
 
-} _Scene;
+} Scene;
 
 
 

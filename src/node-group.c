@@ -142,13 +142,13 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
 
             if (previousChild) {
                 // Not the first child; remove from the middle
-                ((_Node*)previousChild)->nextSibling = nextChild;
+                ((Node*)previousChild)->nextSibling = nextChild;
             } else {
                // First child
                 state->firstChild = nextChild;
             }
 
-            ((_Node*)child)->nextSibling = NULL;
+            ((Node*)child)->nextSibling = NULL;
 
             if (ffx_sceneNode_hasFlags(child, NodeFlagFree)) {
                 ffx_sceneNode_free(child);
@@ -217,7 +217,7 @@ void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child) {
         state->firstChild = state->lastChild = child;
     } else {
         FfxNode _lastChild = state->lastChild;
-        _Node *lastChild = _lastChild;
+        Node *lastChild = _lastChild;
         lastChild->nextSibling = child;
         state->lastChild = child;
     }

@@ -17,9 +17,9 @@
 FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
   FfxSceneFreeFunc freeFunc, void *allocArg) {
 
-    _Scene *scene = (void*)allocFunc(sizeof(_Scene), allocArg);
+    Scene *scene = (void*)allocFunc(sizeof(Scene), allocArg);
     if (scene == NULL) { return NULL; }
-    memset(scene, 0, sizeof(_Scene));
+    memset(scene, 0, sizeof(Scene));
 
     scene->allocFunc = allocFunc;
     scene->freeFunc = freeFunc;
@@ -36,7 +36,7 @@ FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
 }
 
 void ffx_scene_free(FfxScene _scene) {
-    _Scene *scene = _scene;
+    Scene *scene = _scene;
 
     // @TODO: free all children!
 
@@ -44,7 +44,7 @@ void ffx_scene_free(FfxScene _scene) {
 }
 
 FfxNode ffx_scene_root(FfxScene _scene) {
-    _Scene *scene = _scene;
+    Scene *scene = _scene;
     return scene->root;
 }
 
@@ -54,8 +54,8 @@ FfxNode ffx_scene_root(FfxScene _scene) {
 
 void* ffx_scene_createRender(FfxNode _node, size_t stateSize) {
 
-    _Node *node = _node;
-    _Scene *scene = node->scene;
+    Node *node = _node;
+    Scene *scene = node->scene;
 
     size_t size = sizeof(Render) + stateSize;
     Render *render = (void*)scene->allocFunc(size, scene->allocArg);
@@ -74,7 +74,7 @@ void* ffx_scene_createRender(FfxNode _node, size_t stateSize) {
 }
 
 void ffx_scene_sequence(FfxScene _scene) {
-    _Scene *scene = _scene;
+    Scene *scene = _scene;
 
     // Delete the last render data
     if (scene->renderHead) {
@@ -99,7 +99,7 @@ void ffx_scene_render(FfxScene _scene, uint16_t *fragment, FfxPoint origin,
   FfxSize size) {
     printf("RENDER: pos=%dx%d size=%dx%d\n", origin.x, origin.y, size.width,
       size.height);
-    _Scene *scene = _scene;
+    Scene *scene = _scene;
 
     Render *render = scene->renderHead;
     while (render) {
@@ -112,7 +112,7 @@ void ffx_scene_render(FfxScene _scene, uint16_t *fragment, FfxPoint origin,
 // Debugging
 
 void ffx_scene_dump(FfxScene _scene) {
-    _Scene *scene = _scene;
+    Scene *scene = _scene;
     ffx_sceneNode_dump(scene->root, 0);
 }
 
