@@ -38,12 +38,15 @@ typedef struct FfxSize {
 
 // [ 1 bit: isBold ] [ 1 bit: reserved ] [ 6 bites: size ]
 typedef enum FfxFont {
-    FfxFontLarge     = 0x18,    // 24-point
-    FfxFontMedium    = 0x14,    // 20-point
-    FfxFontSmall     = 0x0f,    // 15-point
-    FfxFontSizeMask  = 0x2f,
+    FfxFontLarge       = 0x18,    // 24-point
+    FfxFontLargeBold   = 0x98,    // 24-point bold
+    FfxFontMedium      = 0x14,    // 20-point
+    FfxFontMediumBold  = 0x94,    // 20-point bold
+    FfxFontSmall       = 0x0f,    // 15-point
+    FfxFontSmallBold   = 0x8f,    // 15-point bold
 
-    FfxFontBold      = 0x80,    // Bold
+    FfxFontSizeMask    = 0x2f,
+    FfxFontBoldMask    = 0x80
 } FfxFont;
 
 
@@ -140,18 +143,18 @@ void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child);
 typedef void (*FfxNodeAnimationCompleteFunc)(FfxNode node, void* arg,
   FfxSceneActionStop stopReason);
 
-typedef struct FfxAnimation {
-    uint32_t delay;         // Default: 0
-    uint32_t duration;      // Default: 0
-    FfxCurveFunc curve ;        // Default: Linear
-    FfxNodeAnimationCompleteFunc onComplete; // Default: NULL
-    void* arg;              // Default: NULL
-} FfxAnimation;
+typedef struct FfxNodeAnimation {
+    uint32_t delay;                           // Default: 0
+    uint32_t duration;                        // Default: 0
+    FfxCurveFunc curve;                       // Default: Linear
+    FfxNodeAnimationCompleteFunc onComplete;  // Default: NULL
+    void* arg;                                // Default: NULL
+} FfxNodeAnimation;
 
-typedef void (*FfxNodeAnimateFunc)(FfxNode node, FfxAnimation *animate,
-  void *arg);
+typedef void (*FfxNodeAnimationSetupFunc)(FfxNode node,
+  FfxNodeAnimation *animation, void *arg);
 
-void ffx_sceneNode_animate(FfxNode node, FfxNodeAnimateFunc animationsFunc,
+void ffx_sceneNode_animate(FfxNode node, FfxNodeAnimationSetupFunc setupFunc,
   void *arg);
 
 
@@ -189,11 +192,10 @@ void ffx_sceneBox_setSize(FfxNode node, FfxSize size);
 ///////////////////////////////
 // Label
 
-FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text,
-  size_t length);
+FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text);
 
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length);
-void ffx_sceneLabel_setText(FfxNode node, const char* data, size_t length);
+void ffx_sceneLabel_setText(FfxNode node, const char* text);
 
 FfxFont ffx_sceneLabel_getFont(FfxNode node);
 void ffx_sceneLabel_setFont(FfxNode node, FfxFont font);
@@ -208,7 +210,8 @@ void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
 ///////////////////////////////
 // Image
 
-FfxNode ffx_scene_createImage(FfxScene scene, uint8_t *data, size_t length);
+FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
+  size_t length);
 
 color_ffxt ffx_sceneImage_getTint(FfxNode node);
 void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
