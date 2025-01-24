@@ -27,7 +27,7 @@ typedef enum NodeFlag {
 
     // Node is in an animations block; changes should be queued as
     // an animation target
-    NodeFlagPapturing       = (1 << 8),
+    NodeFlagCapturing       = (1 << 8),
 } NodeFlag;
 
 NodeFlag ffx_sceneNode_hasFlags(FfxNode node, NodeFlag flags);
@@ -37,15 +37,27 @@ void ffx_sceneNode_clearFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
 void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
+
+typedef struct Action {
+    struct Action *nextAction;
+    FfxNodeAnimationFunc animationFunc;
+    // Action State here
+} Action;
+
+
 typedef struct Animation {
     struct Animation *nextAnimation;
-    FfxAnimation animation;
+    Action *actions;
+    FfxNodeAnimation animation;
 } Animation;
+
 
 typedef struct Render {
     struct Render *nextRender;
     _FfxNodeRenderFunc renderFunc;
+    // Render State here
 } Render;
+
 
 typedef struct Node {
     const _FfxNodeVTable* vtable;
@@ -54,9 +66,9 @@ typedef struct Node {
     uint32_t flags;
     Animation *animations;
     FfxNode nextSibling;
+    // Node State here
 } Node;
 
-struct Render;
 
 typedef struct Scene {
     FfxSceneAllocFunc allocFunc;

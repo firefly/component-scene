@@ -109,3 +109,60 @@ FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
     Node *node = _node;
     return node->nextSibling;
 }
+
+//////////////////////////
+// Animation
+
+bool ffx_sceneNode_isCapturing(FfxNode node) {
+    return ffx_sceneNode_hasFlags(node, NodeFlagCapturing);
+}
+
+void* ffx_sceneNode_createAnimation(FfxNode _node, size_t stateSize,
+  FfxNodeAnimationFunc animationFunc) {
+
+    if (!ffx_sceneNode_hasFlags(_node, NodeFlagCapturing)) {
+        printf("cannot add animations; not capturing\n");
+        return NULL;
+    }
+
+    Node *node = _node;
+    Scene *scene = node->scene;
+
+    size_t size = sizeof(Action) + stateSize;
+
+    Action *action = (void*)scene->allocFunc(size, scene->allocArg);
+    memset(node, 0, size);
+
+    action->nextAction = node->animations->actions;
+    node->animations->actions = action;
+
+    action->animationFunc = animationFunc;
+
+    return &action[1];
+}
+
+void ffx_sceneNode_animate(FfxNode _node,
+  FfxNodeAnimationSetupFunc animationsFunc, void *arg) {
+
+    if (ffx_sceneNode_hasFlags(_node, NodeFlagCapturing)) {
+        printf("already capturing animation\n");
+        return;
+    }
+
+    Node *node = _node;
+    Scene *scene = node->scene;
+
+    Animation *animation = (void*)scene->allocFunc(sizeof(Animation),
+      scene->allocArg);
+    memset(node, 0, sizeof(Animation));
+
+    // Add the new animation to the head of the animation linked list
+    animation->nextAnimation = node->animations;
+    node->animations = animation;
+
+    animation->animation.curve = FfxCurveLinear;
+
+    ffx_sceneNode_setFlags(_node, NodeFlagCapturing);
+    animationsFunc(_node, &animation->animation, arg);
+    ffx_sceneNode_clearFlags(_node, NodeFlagCapturing);
+}
