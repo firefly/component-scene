@@ -15,7 +15,7 @@ typedef struct FillNode {
     color_ffxt color;
 } FillNode;
 
-static void destoryFunc(FfxNode node) { }
+static void destroyFunc(FfxNode node) { }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     FillNode *state = ffx_sceneNode_getState(node);
@@ -37,7 +37,6 @@ static void renderFunc(void *_render, uint16_t *_frameBuffer,
     // @TODO: this doesn't work in general anymore; render line-by-line
 
     uint32_t count = size.width * size.height / 2;
-    printf("FILL: c=%ld\n", count);
 
     for (uint32_t i = 0; i < count; i++) { *frameBuffer++ = c; }
 }
@@ -53,7 +52,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const _FfxNodeVTable vtable = {
-    .destroyFunc = destoryFunc,
+    .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
     .dumpFunc = dumpFunc,

@@ -172,7 +172,7 @@ typedef struct BoxRender {
     color_ffxt color;
 } BoxRender;
 
-static void destoryFunc(FfxNode node) {
+static void destroyFunc(FfxNode node) {
 }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
@@ -223,7 +223,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const _FfxNodeVTable vtable = {
-    .destroyFunc = destoryFunc,
+    .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
     .dumpFunc = dumpFunc,

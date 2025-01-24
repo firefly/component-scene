@@ -110,7 +110,7 @@ typedef struct GroupNode {
     FfxNode lastChild;
 } GroupNode;
 
-static void destoryFunc(FfxNode node) {
+static void destroyFunc(FfxNode node) {
     GroupNode *state = ffx_sceneNode_getState(node);
 
     FfxNode *child = state->firstChild;
@@ -190,7 +190,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const _FfxNodeVTable vtable = {
-    .destroyFunc = destoryFunc,
+    .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
     .dumpFunc = dumpFunc,
