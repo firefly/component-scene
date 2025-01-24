@@ -37,6 +37,7 @@ typedef struct FfxSize {
 
 
 // [ 1 bit: isBold ] [ 1 bit: reserved ] [ 6 bites: size ]
+
 typedef enum FfxFont {
     FfxFontLarge       = 0x18,    // 24-point
     FfxFontLargeBold   = 0x98,    // 24-point bold
@@ -49,7 +50,17 @@ typedef enum FfxFont {
     FfxFontBoldMask    = 0x80
 } FfxFont;
 
+typedef struct FfxFontMetrics {
+    FfxSize dimensions;
+    int8_t descent;
+    uint8_t outlineWidth;
+    uint8_t points;
+    bool isBold;
+} FfxFontMetrics;
 
+FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font);
+
+///////////////////////////////
 // Animation
 
 typedef enum FfxSceneActionStop {
@@ -205,6 +216,8 @@ void ffx_sceneLabel_setTextColor(FfxNode node, color_ffxt color);
 
 color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node);
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
+
+FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font);
 
 
 ///////////////////////////////

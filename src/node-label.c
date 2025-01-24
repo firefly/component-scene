@@ -24,6 +24,53 @@ typedef struct LabelRender {
     // Text goes here
 } LabelRender;
 
+typedef struct FontInfo {
+    const uint32_t *font;
+    const uint32_t *outlineFont;
+    uint32_t outlineWidth;
+} FontInfo;
+
+FontInfo getFontInfo(FfxFont font) {
+    FontInfo result = { };
+    result.outlineWidth = 2;
+
+    switch (font) {
+
+        case FfxFontSmall:
+            result.font = font_small_normal;
+            result.outlineFont = font_small_normal_outline;
+            result.outlineWidth = 3;
+            break;
+        case FfxFontSmallBold:
+            result.font = font_small_bold;
+            result.outlineFont = font_small_bold_outline;
+            break;
+
+        case FfxFontMedium:
+            result.font = font_medium_normal;
+            result.outlineFont = font_medium_normal_outline;
+            break;
+        case FfxFontMediumBold:
+            result.font = font_medium_bold;
+            result.outlineFont = font_medium_bold_outline;
+            break;
+
+        case FfxFontLarge:
+            result.font = font_large_normal;
+            result.outlineFont = font_large_normal_outline;
+            break;
+        case FfxFontLargeBold:
+            result.font = font_large_bold;
+            result.outlineFont = font_large_bold_outline;
+            break;
+
+        default:
+            printf("unknown font: %d", font);
+    }
+
+    return result;
+}
+
 static void destroyFunc(FfxNode node) {
     LabelNode *state = ffx_sceneNode_getState(node);
     if (state->text) {
@@ -88,8 +135,10 @@ static void renderText(uint16_t *frameBuffer, const char *text,
   FfxPoint position, const uint32_t *font, int32_t strokeOffset,
   color_ffxt color) {
 
-    int32_t descent = (font[0] >> 16) & 0xff;
-    int32_t height = (font[0] >> 8) & 0xff;
+    if (ffx_color_isTransparent(color)) { return; }
+
+    //int32_t descent = (font[0] >> 16) & 0xff;
+    //int32_t height = (font[0] >> 8) & 0xff;
     int32_t width = (font[0] >> 0) & 0xff;
 
     int x = position.x - strokeOffset, y = position.y - strokeOffset;
@@ -129,45 +178,11 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
 
     size_t length = strlen(text);
 
-    const uint32_t *font = NULL;
-    const uint32_t *outlineFont = NULL;
-    uint32_t outlineOffset = 2;
-    switch (render->font) {
+    FontInfo fontInfo = getFontInfo(render->font);
+    const uint32_t *font = fontInfo.font;
+    const uint32_t *outlineFont = fontInfo.outlineFont;
 
-        case FfxFontSmall:
-            font = font_small_normal;
-            outlineFont = font_small_normal_outline;
-            outlineOffset = 3;
-            break;
-        case FfxFontSmallBold:
-            font = font_small_bold;
-            outlineFont = font_small_bold_outline;
-            break;
-
-        case FfxFontMedium:
-            font = font_medium_normal;
-            outlineFont = font_medium_normal_outline;
-            break;
-        case FfxFontMediumBold:
-            font = font_medium_bold;
-            outlineFont = font_medium_bold_outline;
-            break;
-
-        case FfxFontLarge:
-            font = font_large_normal;
-            outlineFont = font_large_normal_outline;
-            break;
-        case FfxFontLargeBold:
-            font = font_large_bold;
-            outlineFont = font_large_bold_outline;
-            break;
-
-        default:
-            printf("unknown font: %d", render->font);
-            return;
-    }
-
-    int32_t descent = (font[0] >> 16) & 0xff;
+    //int32_t descent = (font[0] >> 16) & 0xff;
     int32_t height = (font[0] >> 8) & 0xff;
     int32_t width = (font[0] >> 0) & 0xff;
 
@@ -188,9 +203,9 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     };
 
     renderText(frameBuffer, text, position, outlineFont, 0,
-      ffx_color_rgb(100, 100, 100, 32));
+      render->outlineColor);
     renderText(frameBuffer, text, position, font, 0,
-      ffx_color_rgb(255, 255, 255, 32));
+      render->textColor);
 }
 
 static void dumpFunc(FfxNode node, int indent) {
@@ -292,4 +307,22 @@ color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node) {
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color) {
     LabelNode *state = ffx_sceneNode_getState(node);
     state->outlineColor = color;
+}
+
+
+FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
+    FontInfo fontInfo = getFontInfo(font);
+
+    const uint32_t header = fontInfo.font[0];
+
+    return (FfxFontMetrics){
+        .dimensions = (FfxSize){
+            .width = (header >> 0) & 0xff,
+            .height = (header >> 8) & 0xff
+        },
+        .descent = (header >> 16) & 0xff,
+        .outlineWidth = fontInfo.outlineWidth,
+        .points = (font & FfxFontSizeMask),
+        .isBold = !!(font & FfxFontBoldMask)
+    };
 }
