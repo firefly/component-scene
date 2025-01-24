@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "firefly-color.h"
@@ -290,6 +291,10 @@ FfxColorRGB ffx_color_parseRGB(color_ffxt color) {
     rgb.green = _getG(color);
     rgb.alpha = _getA(color);
     return rgb;
+}
+
+bool ffx_color_isTransparent(color_ffxt color) {
+    return (_getA(color) == 0);
 }
 
 // Test program to validate HSV conversion

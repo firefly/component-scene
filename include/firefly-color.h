@@ -131,6 +131,7 @@ color_ffxt ffx_color_blend(color_ffxt foreground, color_ffxt background);
 //rgb24_t color_rgb24Lerp(color_t a, color_t b, uint32_t top, uint32_t bottom);
 //rgb24_t color_rgb24Lerpfx(color_t a, color_t b, fixed_t alpha);
 
+bool ffx_color_isTransparent(color_ffxt color);
 
 #ifdef __cplusplus
 }
