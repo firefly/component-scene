@@ -1,18 +1,4 @@
-/**
- *  Scene Node: Image
- *
- *  The image data formats supported include a header which indicates
- *  which specialized RenderFun should be used.
- *
- *  a:uint8_t* - a pointer the image data
- *  b:Size     - this value depends on the image type, and may
- *               represent multiple things, such as alpha or a
- *               mask value, pallette information or
- *               pre-computed data
- */
-
 #include <stdio.h>
-
 #include <stddef.h>
 
 #include "firefly-scene-private.h"
@@ -29,7 +15,6 @@ typedef struct ImageRender {
     const uint16_t *data;
     color_ffxt tint;
 } ImageRender;
-
 
 
 static  void _renderRGB565(ImageRender *render, uint16_t *frameBuffer,
@@ -310,6 +295,10 @@ uint32_t ffx_scene_imageAnimateAlpha(FfxScene scene, FfxNode node, uint32_t targ
 */
 //////
 
+
+//////////////////////////
+// Methods
+
 static void destroyFunc(FfxNode node) {
 }
 
@@ -363,6 +352,10 @@ static const FfxNodeVTable vtable = {
     .dumpFunc = dumpFunc,
 };
 
+
+//////////////////////////
+// Life-cycle
+
 FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
   size_t dataLength) {
 
@@ -376,6 +369,10 @@ FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
 
     return node;
 }
+
+
+//////////////////////////
+// Properties
 
 const uint16_t* ffx_sceneImage_getImage(FfxNode node) {
     ImageNode *state = ffx_sceneNode_getState(node);

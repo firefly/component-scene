@@ -1,12 +1,3 @@
-/**
- *  Scene Node: Group
- *
- *  A Group Node does not have any visible objects itself, but
- *  allows for hierarchal scenes with multiple "attached" objects
- *  to be moved together.
- */
-
-
 #include <stddef.h>
 #include <stdio.h>
 
@@ -18,6 +9,9 @@ typedef struct GroupNode {
     FfxNode lastChild;
 } GroupNode;
 
+
+//////////////////////////
+// Methods
 
 static void destroyFunc(FfxNode node) {
     GroupNode *state = ffx_sceneNode_getState(node);
@@ -102,9 +96,17 @@ static const FfxNodeVTable vtable = {
     .dumpFunc = dumpFunc,
 };
 
+
+//////////////////////////
+// Life-cycle
+
 FfxNode ffx_scene_createGroup(FfxScene scene) {
     return ffx_scene_createNode(scene, &vtable, sizeof(GroupNode));
 }
+
+
+//////////////////////////
+// Properties
 
 FfxNode ffx_sceneGroup_getFirstChild(FfxNode node) {
     GroupNode *state = ffx_sceneNode_getState(node);

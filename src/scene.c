@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 
-// For tick
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-
 #include "scene.h"
 
+
+//////////////////////////
+// Memory
 
 void* ffx_scene_memAlloc(FfxScene _scene, size_t size) {
     Scene *scene = _scene;
@@ -37,9 +38,8 @@ void ffx_sceneNode_memFree(FfxNode _node, void *ptr) {
 
 
 //////////////////////////
-// Scene life-cycle
+// Life-cycle
 
-// Allocate a new Scene
 FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
   FfxSceneFreeFunc freeFunc, void *allocArg) {
 
@@ -187,6 +187,7 @@ void ffx_scene_sequence(FfxScene _scene) {
 
     scene->tick = xTaskGetTickCount();
 
+    // Update all animations
     updateAnimations(scene);
 
     // Sequence all the nodes
@@ -230,10 +231,6 @@ void ffx_scene_render(FfxScene _scene, uint16_t *fragment, FfxPoint origin,
         render = render->nextRender;
     }
 }
-
-//////////////////////////
-// Animation
-
 
 
 //////////////////////////

@@ -1,10 +1,3 @@
-/**
- *  Scene Node: Fill
- *
- *  a:uint32   - color (16 bpp) repeated in top and bottom half
- */
-
-
 #include <stddef.h>
 #include <stdio.h>
 
@@ -14,6 +7,10 @@
 typedef struct FillNode {
     color_ffxt color;
 } FillNode;
+
+
+//////////////////////////
+// Methods
 
 static void destroyFunc(FfxNode node) { }
 
@@ -58,6 +55,10 @@ static const FfxNodeVTable vtable = {
     .dumpFunc = dumpFunc,
 };
 
+
+//////////////////////////
+// Life-cycle
+
 FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(FillNode));
 
@@ -66,6 +67,10 @@ FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
 
     return node;
 }
+
+
+//////////////////////////
+// Properties
 
 color_ffxt ffx_sceneFill_getColor(FfxNode node) {
     FillNode *state = ffx_sceneNode_getState(node);

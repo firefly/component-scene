@@ -31,6 +31,7 @@ typedef enum NodeFlag {
 
 } NodeFlag;
 
+
 NodeFlag ffx_sceneNode_hasFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_setFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_clearFlags(FfxNode node, NodeFlag flags);

@@ -1,4 +1,3 @@
-
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -24,15 +23,20 @@ typedef struct LabelRender {
     // Text goes here
 } LabelRender;
 
+
+//////////////////////////
+// Utilities
+
 typedef struct FontInfo {
     const uint32_t *font;
     const uint32_t *outlineFont;
     uint32_t outlineWidth;
 } FontInfo;
 
+
 FontInfo getFontInfo(FfxFont font) {
     FontInfo result = { };
-    result.outlineWidth = 2;
+    result.outlineWidth = 2;  // @TODO: this changed
 
     switch (font) {
 
@@ -70,6 +74,27 @@ FontInfo getFontInfo(FfxFont font) {
 
     return result;
 }
+
+FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
+    FontInfo fontInfo = getFontInfo(font);
+
+    const uint32_t header = fontInfo.font[0];
+
+    return (FfxFontMetrics){
+        .dimensions = (FfxSize){
+            .width = (header >> 0) & 0xff,
+            .height = (header >> 8) & 0xff
+        },
+        .descent = (header >> 16) & 0xff,
+        .outlineWidth = fontInfo.outlineWidth,
+        .points = (font & FfxFontSizeMask),
+        .isBold = !!(font & FfxFontBoldMask)
+    };
+}
+
+
+//////////////////////////
+// Methods
 
 static void destroyFunc(FfxNode node) {
     LabelNode *state = ffx_sceneNode_getState(node);
@@ -243,6 +268,10 @@ static const FfxNodeVTable vtable = {
     .dumpFunc = dumpFunc,
 };
 
+
+//////////////////////////
+// Life-cycle
+
 FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
 
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(LabelNode));
@@ -256,6 +285,10 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
 
     return node;
 }
+
+
+//////////////////////////
+// Properties
 
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
     LabelNode *state = ffx_sceneNode_getState(node);
@@ -321,19 +354,3 @@ void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color) {
 }
 
 
-FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
-    FontInfo fontInfo = getFontInfo(font);
-
-    const uint32_t header = fontInfo.font[0];
-
-    return (FfxFontMetrics){
-        .dimensions = (FfxSize){
-            .width = (header >> 0) & 0xff,
-            .height = (header >> 8) & 0xff
-        },
-        .descent = (header >> 16) & 0xff,
-        .outlineWidth = fontInfo.outlineWidth,
-        .points = (font & FfxFontSizeMask),
-        .isBold = !!(font & FfxFontBoldMask)
-    };
-}

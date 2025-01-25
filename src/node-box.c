@@ -1,14 +1,8 @@
-/**
- *  Scene Node: Box
- *
- *  a:Size     - (width, height)
- *  b:uint32   - color (16 bpp) repeated in top and bottom half
- */
-
 #include <stddef.h>
 #include <stdio.h>
 
 #include "firefly-scene-private.h"
+
 /*
 static void _renderDark50(FfxPoint pos, FfxProperty a, FfxProperty b, uint16_t *frameBuffer, int32_t y0, int32_t height) {
 
@@ -159,8 +153,6 @@ uint32_t ffx_scene_boxAnimateColor(FfxScene scene, FfxNode node,
 */
 
 
-///////////
-
 typedef struct BoxNode {
     FfxSize size;
     color_ffxt color;
@@ -171,6 +163,10 @@ typedef struct BoxRender {
     FfxSize size;
     color_ffxt color;
 } BoxRender;
+
+
+//////////////////////////
+// Methods
 
 static void destroyFunc(FfxNode node) {
 }
@@ -229,6 +225,10 @@ static const FfxNodeVTable vtable = {
     .dumpFunc = dumpFunc,
 };
 
+
+//////////////////////////
+// Life-cycle
+
 FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(BoxNode));
 
@@ -237,6 +237,10 @@ FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size) {
 
     return node;
 }
+
+
+//////////////////////////
+// Properties
 
 color_ffxt ffx_sceneBox_getColor(FfxNode node) {
     BoxNode *state = ffx_sceneNode_getState(node);

@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "firefly-scene-private.h"
-
 #include "scene.h"
 
 
@@ -49,6 +47,7 @@ void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
     }
 }
 
+
 //////////////////////////
 // Flags
 
@@ -80,6 +79,7 @@ void ffx_sceneNode_dump(FfxNode _node, size_t indent) {
     Node *node = _node;
     node->vtable->dumpFunc(_node, indent);
 }
+
 
 //////////////////////////
 // Properties
@@ -138,6 +138,7 @@ FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
     Node *node = _node;
     return node->nextSibling;
 }
+
 
 //////////////////////////
 // Animation
