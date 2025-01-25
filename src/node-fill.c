@@ -51,7 +51,7 @@ static void dumpFunc(FfxNode node, int indent) {
     printf("<Fill color=%s>\n", colorName);
 }
 
-static const _FfxNodeVTable vtable = {
+static const FfxNodeVTable vtable = {
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,

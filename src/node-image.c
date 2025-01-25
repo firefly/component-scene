@@ -356,7 +356,7 @@ static void dumpFunc(FfxNode node, int indent) {
       size.width, size.height, state->data);
 }
 
-static const _FfxNodeVTable vtable = {
+static const FfxNodeVTable vtable = {
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,

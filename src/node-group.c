@@ -4,111 +4,20 @@
  *  A Group Node does not have any visible objects itself, but
  *  allows for hierarchal scenes with multiple "attached" objects
  *  to be moved together.
- *
- *  x, y       - co-ordinates in local space
- *  a:void*    - a pointer to the first child
- *  b:void*    - a pointer to the last child
  */
 
-// The group node is a bit special and requires lower-level access
-// to the Scene and Nodes than normal nodes, so we access scene.h
-// instead of firefly-scene-private.h
 
 #include <stddef.h>
 #include <stdio.h>
 
-
 #include "scene.h"
-
-
-// From scene.c
-//void _freeSequence(FfxScene scene, FfxPoint worldPos, FfxNode node);
-
-/*
-static void _updateAnimations(_Scene *scene, _Node *node) {
-
-    _Node *animate = node->animate.node;
-
-    // No animations
-    if (animate == NULL) { return; }
-
-    int32_t now = scene->tick;
-
-    _Node *lastAnimate = NULL;
-
-    uint16_t stopType = FfxSceneActionStopNormal;
-
-    while (animate) {
-        int32_t duration = animate->a.i32;
-        int32_t endTime = animate->b.i32;
-
-        _Node *prop = animate->nextNode;
-        _Node *nextAnimate = prop->nextNode;
-
-        if (stopType == FfxSceneActionStopNormal) {
-            stopType = animate->pos.y;
-
-            // Animation advance
-            if (stopType == 0xfe) {
-                stopType = FfxSceneActionStopNormal;
-
-                animate->b.i32 -= animate->pos.x;
-                endTime = animate->b.i32;
-
-                animate->pos.x = 0;
-                animate->pos.y = FfxSceneActionStopNormal;
-            }
-        }
-        if (stopType) { endTime = now; }
-
-        if (stopType != FfxSceneActionStopCurrent) {
-
-            // Compute the curve-adjusted t
-            fixed_ffxt t = FM_1;
-            if (endTime > now) {
-                t = FM_1 - (tofx(endTime - now) / duration);
-                if (t > FM_1) { t = FM_1; }
-            }
-
-            t = prop->func.curveFunc(t);
-
-            // Perform the animation
-            animate->func.animateFunc(node, t, prop->a, prop->b);
-        }
-
-        // Remove animation
-        if (now >= endTime) {
-
-            // Make the previous AnimateNode link to the next
-            if (lastAnimate) {
-                lastAnimate->nextNode->nextNode = nextAnimate;
-            } else {
-                node->animate.node = nextAnimate;
-            }
-
-            // Add the node back to the free nodes
-            prop->nextNode = scene->nextFree;
-            scene->nextFree = animate;
-
-            if (prop->animate.onComplete) {
-                prop->animate.onComplete(scene, node, stopType);
-            }
-
-        } else {
-            lastAnimate = animate;
-        }
-
-        // Advance to the next animation
-        animate = nextAnimate;
-    }
-}
-*/
 
 
 typedef struct GroupNode {
     FfxNode firstChild;
     FfxNode lastChild;
 } GroupNode;
+
 
 static void destroyFunc(FfxNode node) {
     GroupNode *state = ffx_sceneNode_getState(node);
@@ -158,9 +67,6 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
             }
 
         } else {
-            // Update the animations
-            //_updateAnimations(scene, child);
-
             // Sequence the child
             ffx_sceneNode_sequence(child, worldPos);
             previousChild = child;
@@ -189,7 +95,7 @@ static void dumpFunc(FfxNode node, int indent) {
     }
 }
 
-static const _FfxNodeVTable vtable = {
+static const FfxNodeVTable vtable = {
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
