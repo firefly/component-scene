@@ -46,7 +46,7 @@ typedef enum FfxFont {
     FfxFontSmall       = 0x0f,    // 15-point
     FfxFontSmallBold   = 0x8f,    // 15-point bold
 
-    FfxFontSizeMask    = 0x2f,
+    FfxFontSizeMask    = 0x3f,
     FfxFontBoldMask    = 0x80
 } FfxFont;
 

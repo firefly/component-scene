@@ -82,12 +82,15 @@ static void destroyFunc(FfxNode node) {
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     LabelNode *state = ffx_sceneNode_getState(node);
 
+    size_t strLen = strlen(state->text);
+    if (strLen == 0) { return; }
+
+    // Include the null termination and round up to the nearest word
+    strLen = (strLen + 1 + 3) & 0xfffffc;
+
     FfxPoint pos = ffx_sceneNode_getPosition(node);
     pos.x += worldPos.x;
     pos.y += worldPos.y;
-
-    // Round up to the nearest word
-    size_t strLen = (strlen(state->text) + 1 + 3) & 0xfffffc;
 
     LabelRender *render = ffx_scene_createRender(node, sizeof(LabelRender) + strLen);
     render->font = state->font;
@@ -111,6 +114,8 @@ static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
     uint16_t color = ffx_color_rgb16(_color);
 
     int x = 0, y = 0;
+    // @TODO: Use pointer math instead of multiply
+    //uint16_t *output = &frameBuffer[oy * 240 + ox]
     while (true) {
         uint32_t bitmap = *data++;
         for (int i = 0; i < 32; i++) {
@@ -131,14 +136,15 @@ static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
     }
 }
 
+#define SPACE_WIDTH       (2)
+#define OUTLINE_WIDTH     (4)
+
 static void renderText(uint16_t *frameBuffer, const char *text,
   FfxPoint position, const uint32_t *font, int32_t strokeOffset,
   color_ffxt color) {
 
     if (ffx_color_isTransparent(color)) { return; }
 
-    //int32_t descent = (font[0] >> 16) & 0xff;
-    //int32_t height = (font[0] >> 8) & 0xff;
     int32_t width = (font[0] >> 0) & 0xff;
 
     int x = position.x - strokeOffset, y = position.y - strokeOffset;
@@ -152,22 +158,21 @@ static void renderText(uint16_t *frameBuffer, const char *text,
 
         // non-printable character; @TODO: add placeholder
         if (c <= ' ' || c > '~') {
-            x += width + 1;
+            x += width + SPACE_WIDTH;
             continue;
         }
 
         int index = (c - ' ');
         int gw = (font[index] >> 27) & 0x1f;
         int gh = (font[index] >> 22) & 0x1f;
-        int gpl = ((font[index] >> 16) & 0x3f) - 31;
-        int gpt = ((font[index] >> 10) & 0x3f) - 31;
-        int offset = font[index] & 0x3ff;
+        int gpl = ((font[index] >> 18) & 0x0f) - 6;
+        int gpt = ((font[index] >> 13) & 0x1f) - 6;
+        int offset = (font[index] & 0x1fff);
         const uint32_t *data = &font[95 + offset];
 
         renderGlyph(frameBuffer, x + gpl, y + gpt, gw, gh, data, color);
-        x += width + 1;
+        x += width + SPACE_WIDTH;
     }
-
 }
 
 static void renderFunc(void *_render, uint16_t *frameBuffer,
@@ -186,10 +191,13 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     int32_t height = (font[0] >> 8) & 0xff;
     int32_t width = (font[0] >> 0) & 0xff;
 
-    // @TODO: Account for outline in this clipping
+    FfxPoint pos = (FfxPoint){ .x = -OUTLINE_WIDTH, .y = -OUTLINE_WIDTH };
+    pos.x += render->position.x;
+    pos.y += render->position.y;
 
     FfxClip clip = ffx_scene_clip(render->position, (FfxSize){
-        .width = length * (width + 1) - 1, .height = height
+        .width = (2 * OUTLINE_WIDTH) + ((length - 1) * (width + SPACE_WIDTH)),
+        .height = (2 * OUTLINE_WIDTH) + height
     }, origin, size);
 
     if (clip.width == 0) { return; }
@@ -220,9 +228,12 @@ static void dumpFunc(FfxNode node, int indent) {
     ffx_color_name(state->outlineColor, outlineColorName,
       sizeof(outlineColorName));
 
+    int fontSize = state->font & FfxFontSizeMask;
+
     for (int i = 0; i < indent; i++) { printf("  "); }
-    printf("<Label pos=%dx%d font=%d color=%s outline=%s text=\"%s\">\n", pos.x,
-      pos.y, state->font, textColorName, outlineColorName, state->text);
+    printf("<Label pos=%dx%d font=%dpt%s color=%s outline=%s text=\"%s\">\n", pos.x,
+      pos.y, fontSize, (state->font & FfxFontBoldMask) ? "-bold": "",
+      textColorName, outlineColorName, state->text);
 }
 
 static const _FfxNodeVTable vtable = {

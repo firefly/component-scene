@@ -14,6 +14,9 @@ const text0 = "The quick brown fox jumps over the lazy dog.";
 
 const padding = [ 0, 25, 0, 25 ];
 
+function shl(v: number, shift: number): number {
+    return Number(BigInt(v) << BigInt(shift));
+}
 
 
 export async function createFontPreview(font: Font, text: string, isDark: boolean) {
@@ -130,6 +133,9 @@ function getValue(v: string): number {
         }
     }
 
+    let minPadTop = 10000, maxPadTop = -10000;
+    let minPadLeft = 10000, maxPadLeft = -10000;
+
     const generateFont = (font: Font, outline: number) => {
 
         if (font.bounds.x !== 0 || font.bounds.y > 0 || -font.bounds.y > 31) {
@@ -160,7 +166,7 @@ function getValue(v: string): number {
             //if (i === 65) { bitmap.dump(); }
 
             // Compute the index data
-            if (data.length > 1023) {
+            if (data.length > 8191) {
                 throw new Error(`unsupported index: ${ data.length }`);
             }
             indices.push(data.length);
@@ -173,12 +179,16 @@ function getValue(v: string): number {
             heights.push(bitmap.height);
 
             // Compute the bitmap padding data
-            if (bitmap.padLeft < -31 || bitmap.padLeft > 32 ||
-              bitmap.padTop < -31 || bitmap.padTop > 32) {
+            if (bitmap.padLeft < -6 || bitmap.padLeft > 9 ||
+              bitmap.padTop < -6 || bitmap.padTop > 25) {
                 throw new Error(`unsupported pad size: left=${ bitmap.padLeft } top=${ bitmap.padTop }`);
             }
             padLefts.push(bitmap.padLeft);
             padTops.push(bitmap.padTop);
+            if (bitmap.padLeft < minPadLeft) { minPadLeft = bitmap.padLeft; }
+            if (bitmap.padLeft > maxPadLeft) { maxPadLeft = bitmap.padLeft; }
+            if (bitmap.padTop < minPadTop) { minPadTop = bitmap.padTop; }
+            if (bitmap.padTop > maxPadTop) { maxPadTop = bitmap.padTop; }
 
             // Compute bitmap data
             let v = '';
@@ -197,18 +207,19 @@ function getValue(v: string): number {
         //console.log({ indices, widths, heights, padLefts, padTops, data });
 
         addData(`Font Info: width=${ font.bounds.width } height=${ font.bounds.height } descent=${ -font.bounds.y }`, [
-            ((-font.bounds.y) << 16) |
-            (font.bounds.height << 8) |
-            (font.bounds.width << 0)
+            shl((-font.bounds.y), 16) +
+            shl(font.bounds.height, 8) +
+            shl(font.bounds.width, 0)
         ]);
         totalSize += 1;
 
+        // [ width:5 ] [ height:5 ] [ padLeft:4 ] [ padTop:5 ] [ index:13 ]
         addData(`Glyph Info:`, indices.map((index, i) => {
-            return (widths[i] << 27) |
-                (heights[i] << 22) |
-                ((padLefts[i] + 31) << 16) |
-                ((padTops[i] + 31) << 10) |
-                (index << 0)
+            return shl(widths[i], 27) +
+                shl(heights[i], 22) +
+                shl((padLefts[i] + 6), 18) +
+                shl((padTops[i] + 6), 13) +
+                shl(index, 0)
         }));
         totalSize += indices.length;
 
@@ -229,16 +240,16 @@ function getValue(v: string): number {
             for (let outline of [ 0, 1 ]) {
                 const font = loadFont(size, weight);
                 if (outline) {
-                    if (size === "SMALL") {
-                        outline = 3;
+                    if (weight == "BOLD") {
+                        outline = 4;
                     } else {
-                        outline = 2;
+                        outline = 3;
                     }
                 }
 
                 doth.push("");
                 doth.push(`/\/ Font: ${ size.toLowerCase() }-${ weight.toLowerCase() }${ outline ? "-outline": ""} (${ font.filename })`);
-                doth.push(`const uint32_t font_${ size.toLowerCase() }_${ weight.toLowerCase() }[] = {`);
+                doth.push(`const uint32_t font_${ size.toLowerCase() }_${ weight.toLowerCase() }${ outline ? "_outline": "" }[] = {`);
 
                 generateFont(font, outline);
 
@@ -262,4 +273,5 @@ function getValue(v: string): number {
     doth.push(`#endif  /* __FONTS_H__ */`);
 
     console.log(doth.join("\n"));
+    //console.log("//", { minPadTop, minPadLeft, maxPadTop, maxPadLeft });
 })();
