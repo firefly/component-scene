@@ -135,22 +135,6 @@ void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child);
 ///////////////////////////////
 // Node: Animations
 
-//void ffx_sceneNode_beginAnimations(FfxNode node, uint32_t delay,
-//  uint32_t duration, FfxCurve curve, FfxNodeAnimationsComplete onComplete,
-//  void *arg);
-//void ffx_sceneNode_commitAnimations(FfxNode node);
-
-// IDEA:
-//typedef void (*FfxNodeAnimateFunc)(FfxNode node, void *arg);
-//void ffx_sceneNode_animate(FfxNode node, uint32_t delay, uint32_t duration,
-//  FfxCurve curve, FfxNodeAnimateFunc animateFunc,
-//  FfxNodeAnimationsCompleteFunc onComplete);
-
-// IDEA2:
-// Allocate immediately; use AnimationFunc for item to snapshot
-// anything necessary and that can be updated in the setters;
-// then the setters update that object.
-
 typedef void (*FfxNodeAnimationCompleteFunc)(FfxNode node, void* arg,
   FfxSceneActionStop stopReason);
 

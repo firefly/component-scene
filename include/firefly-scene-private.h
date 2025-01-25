@@ -12,26 +12,26 @@ extern "C" {
 #include "firefly-scene.h"
 
 
-typedef void (*_FfxNodeDestroyFunc)(FfxNode node);
+typedef void (*FfxNodeDestroyFunc)(FfxNode node);
 
-typedef void (*_FfxNodeSequenceFunc)(FfxNode node, FfxPoint worldPos);
+typedef void (*FfxNodeSequenceFunc)(FfxNode node, FfxPoint worldPos);
 
-typedef void (*_FfxNodeRenderFunc)(void *render, uint16_t *frameBuffer,
+typedef void (*FfxNodeRenderFunc)(void *render, uint16_t *frameBuffer,
   FfxPoint origin, FfxSize size);
 
-typedef void (*_FfxNodeDumpFunc)(FfxNode node, int indent);
+typedef void (*FfxNodeDumpFunc)(FfxNode node, int indent);
 
 
-typedef struct _FfxNodeVTable {
+typedef struct FfxNodeVTable {
     // Called when deallocating the Node
-    _FfxNodeDestroyFunc destroyFunc;
+    FfxNodeDestroyFunc destroyFunc;
 
     // Called during sequencing and rendering
-    _FfxNodeSequenceFunc sequenceFunc;
-    _FfxNodeRenderFunc renderFunc;
+    FfxNodeSequenceFunc sequenceFunc;
+    FfxNodeRenderFunc renderFunc;
 
-    _FfxNodeDumpFunc dumpFunc;
-} _FfxNodeVTable;
+    FfxNodeDumpFunc dumpFunc;
+} FfxNodeVTable;
 
 
 void* ffx_scene_memAlloc(FfxScene scene, size_t size);
@@ -43,7 +43,7 @@ void ffx_sceneNode_memFree(FfxNode node, void *ptr);
 //////////////////////////////
 // Life-cycle
 
-FfxNode ffx_scene_createNode(FfxScene scene, const _FfxNodeVTable *vtable,
+FfxNode ffx_scene_createNode(FfxScene scene, const FfxNodeVTable *vtable,
   size_t stateSize);
 
 void* ffx_sceneNode_getState(FfxNode node);
@@ -66,11 +66,11 @@ void* ffx_scene_createRender(FfxNode node, size_t stateSize);
 bool ffx_sceneNode_isCapturing(FfxNode node);
 
 
-typedef void (*FfxNodeAnimationFunc)(FfxNode node, fixed_ffxt t,
+typedef void (*FfxNodeActionFunc)(FfxNode node, fixed_ffxt t,
   void *state);
 
-void* ffx_sceneNode_createAnimationAction(FfxNode node, size_t stateSize,
-  FfxNodeAnimationFunc animationFunc);
+void* ffx_sceneNode_createAction(FfxNode node, size_t stateSize,
+  FfxNodeActionFunc actionFunc);
 
 
 //////////////////////////////
