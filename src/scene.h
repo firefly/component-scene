@@ -28,6 +28,7 @@ typedef enum NodeFlag {
     // Node is in an animations block; changes should be queued as
     // an animation target
     NodeFlagCapturing       = (1 << 8),
+
 } NodeFlag;
 
 NodeFlag ffx_sceneNode_hasFlags(FfxNode node, NodeFlag flags);
@@ -40,7 +41,7 @@ void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
 typedef struct Action {
     struct Action *nextAction;
-    FfxNodeAnimationFunc animationFunc;
+    FfxNodeActionFunc actionFunc;
     // Action State here
 } Action;
 
@@ -48,29 +49,32 @@ typedef struct Action {
 typedef struct Animation {
     struct Animation *nextAnimation;
     Action *actions;
-    FfxNodeAnimation animation;
+    struct Node *node;
+    uint32_t startTime;
+    FfxSceneActionStop stop;
+    FfxNodeAnimation info;
 } Animation;
 
 
 typedef struct Render {
     struct Render *nextRender;
-    _FfxNodeRenderFunc renderFunc;
+    FfxNodeRenderFunc renderFunc;
     // Render State here
 } Render;
 
 
 typedef struct Node {
-    const _FfxNodeVTable* vtable;
+    const FfxNodeVTable* vtable;
     struct Scene *scene;
     FfxPoint position;
     uint32_t flags;
-    Animation *animations;
     FfxNode nextSibling;
     // Node State here
 } Node;
 
 
 typedef struct Scene {
+    // Memory allocation
     FfxSceneAllocFunc allocFunc;
     FfxSceneFreeFunc freeFunc;
     void *allocArg;
@@ -84,6 +88,10 @@ typedef struct Scene {
     // The head and tail of the current render list (may be null)
     Render *renderHead;
     Render *renderTail;
+
+    // The head and tail of the animation list (may be null)
+    Animation *animationHead;
+    Animation *animationTail;
 
 } Scene;
 

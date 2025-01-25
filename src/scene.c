@@ -78,6 +78,98 @@ FfxNode ffx_scene_root(FfxScene _scene) {
 //////////////////////////
 // Sequencing
 
+static void updateAnimations(Scene *scene) {
+    uint32_t now = scene->tick;
+
+    // The list of completed animations; removed from the list by not freed
+    Animation *complete = NULL;
+
+    Animation *prevAnimation = NULL;
+    Animation *animation = scene->animationHead;
+    while (animation) {
+        Animation *nextAnimation = animation->nextAnimation;
+
+        FfxSceneActionStop stop = animation->stop;
+
+        bool done = true;
+        if (!stop && now <= animation->startTime + animation->info.delay) {
+            done = false;
+
+        } else if (animation->actions && stop != FfxSceneActionStopCurrent) {
+            done = false;
+
+            uint32_t n = now - animation->info.delay;
+
+            int32_t duration = animation->info.duration;
+            int32_t endTime = animation->startTime + duration;
+
+            fixed_ffxt t = FM_1;
+            if (!stop && n < endTime) {
+                t = FM_1 - (tofx(endTime - n) / duration);
+                if (t > FM_1) { t = FM_1; }
+            } else {
+                done = true;
+            }
+
+            t = animation->info.curve(t);
+
+            Action *action = animation->actions;
+            while (action) {
+                action->actionFunc(animation->node, t, &action[1]);
+                action = action->nextAction;
+            }
+        }
+
+        if (done || stop) {
+            if (prevAnimation == NULL) {
+                scene->animationHead = nextAnimation;
+            } else {
+                prevAnimation->nextAnimation = nextAnimation;
+            }
+
+            animation->nextAnimation = complete;
+            complete = animation;
+
+        } else {
+            prevAnimation = animation;
+        }
+
+        animation = nextAnimation;
+    }
+
+    // No animations remain
+    if (prevAnimation == NULL) {
+        scene->animationHead = scene->animationTail = NULL;
+    }
+
+    // Clean up complete animations
+    animation = complete;
+    while (animation) {
+        Animation *nextAnimation = animation->nextAnimation;
+
+        FfxSceneActionStop stop = animation->stop;
+
+        // Call any completion callback
+        if (animation->info.onComplete) {
+            animation->info.onComplete(animation->node,
+              animation->info.arg, stop);
+        }
+
+        // Remove the actions
+        Action *action = animation->actions;
+        while (action) {
+            Action *nextAction = action->nextAction;
+            scene->freeFunc((void*)action, scene->allocArg);
+            action = nextAction;
+        }
+
+        // Free the animation
+        scene->freeFunc((void*)animation, scene->allocArg);
+
+        animation = nextAnimation;
+    }
+}
+
 void ffx_scene_sequence(FfxScene _scene) {
     Scene *scene = _scene;
 
@@ -94,6 +186,8 @@ void ffx_scene_sequence(FfxScene _scene) {
     }
 
     scene->tick = xTaskGetTickCount();
+
+    updateAnimations(scene);
 
     // Sequence all the nodes
     ffx_sceneNode_sequence(scene->root, (FfxPoint){ .x = 0, .y = 0 });

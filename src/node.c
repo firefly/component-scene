@@ -10,7 +10,7 @@
 //////////////////////////
 // Life-cycle
 
-FfxNode ffx_scene_createNode(FfxScene _scene, const _FfxNodeVTable *vtable,
+FfxNode ffx_scene_createNode(FfxScene _scene, const FfxNodeVTable *vtable,
   size_t stateSize) {
     Scene *scene = _scene;
 
@@ -89,20 +89,49 @@ FfxNode ffx_sceneNode_getScene(FfxNode _node) {
     return node->scene;
 }
 
+typedef struct PositionState {
+    FfxPoint p0, p1;
+} PositionState;
+
+static void animatePosition(FfxNode _node, fixed_ffxt t, void *_state) {
+
+    Node *node = _node;
+
+    PositionState *state = _state;
+    FfxPoint p0 = state->p0;
+    FfxPoint p1 = state->p1;
+
+    node->position.x = p0.x + scalarfx(p1.x - p0.x, t);
+    node->position.y = p0.y + scalarfx(p1.y - p0.y, t);
+}
+
 FfxPoint ffx_sceneNode_getPosition(FfxNode _node) {
     Node *node = _node;
     return node->position;
 }
 
 void ffx_sceneNode_setPosition(FfxNode _node, FfxPoint pos) {
+    if (ffx_sceneNode_isCapturing(_node)) {
+
+        PositionState *state = ffx_sceneNode_createAction(_node,
+          sizeof(PositionState), animatePosition);
+
+        state->p0 = ffx_sceneNode_getPosition(_node);
+        state->p1 = pos;
+
+        return;
+    }
+
     Node *node = _node;
     node->position = pos;
 }
 
 void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
     Node *node = _node;
-    node->position.x += offset.x;
-    node->position.y += offset.y;
+    ffx_sceneNode_setPosition(_node, (FfxPoint){
+        .x = node->position.x + offset.x,
+        .y = node->position.y + offset.y,
+    });
 }
 
 FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
@@ -117,8 +146,8 @@ bool ffx_sceneNode_isCapturing(FfxNode node) {
     return ffx_sceneNode_hasFlags(node, NodeFlagCapturing);
 }
 
-void* ffx_sceneNode_createAnimation(FfxNode _node, size_t stateSize,
-  FfxNodeAnimationFunc animationFunc) {
+void* ffx_sceneNode_createAction(FfxNode _node, size_t stateSize,
+  FfxNodeActionFunc actionFunc) {
 
     if (!ffx_sceneNode_hasFlags(_node, NodeFlagCapturing)) {
         printf("cannot add animations; not capturing\n");
@@ -131,12 +160,13 @@ void* ffx_sceneNode_createAnimation(FfxNode _node, size_t stateSize,
     size_t size = sizeof(Action) + stateSize;
 
     Action *action = (void*)scene->allocFunc(size, scene->allocArg);
-    memset(node, 0, size);
+    memset(action, 0, size);
 
-    action->nextAction = node->animations->actions;
-    node->animations->actions = action;
+    action->actionFunc = actionFunc;
 
-    action->animationFunc = animationFunc;
+    // Add the action to the head of the list of actions on the current animation
+    action->nextAction = scene->animationTail->actions;
+    scene->animationTail->actions = action;
 
     return &action[1];
 }
@@ -154,15 +184,36 @@ void ffx_sceneNode_animate(FfxNode _node,
 
     Animation *animation = (void*)scene->allocFunc(sizeof(Animation),
       scene->allocArg);
-    memset(node, 0, sizeof(Animation));
+    memset(animation, 0, sizeof(Animation));
 
-    // Add the new animation to the head of the animation linked list
-    animation->nextAnimation = node->animations;
-    node->animations = animation;
+    animation->node = node;
+    animation->startTime = scene->tick;
+    animation->info.curve = FfxCurveLinear;
 
-    animation->animation.curve = FfxCurveLinear;
+    // Add the new animation to the animation list
+    if (scene->animationHead == NULL) {
+        scene->animationHead = scene->animationTail = animation;
+    } else {
+        scene->animationTail->nextAnimation = animation;
+        scene->animationTail = animation;
+    }
 
     ffx_sceneNode_setFlags(_node, NodeFlagCapturing);
-    animationsFunc(_node, &animation->animation, arg);
+    animationsFunc(_node, &animation->info, arg);
     ffx_sceneNode_clearFlags(_node, NodeFlagCapturing);
+}
+
+void ffx_sceneNode_stopAnimations(FfxNode _node, bool completeAnimations) {
+    Node *node = _node;
+    Scene *scene = node->scene;
+
+    FfxSceneActionStop stop = FfxSceneActionStopCurrent;
+    if (completeAnimations) { stop = FfxSceneActionStopFinal; }
+
+    Animation *animation = scene->animationHead;
+    while (animation) {
+        if (animation->node == _node && !animation->stop) {
+            animation->stop = stop;
+        }
+    }
 }
