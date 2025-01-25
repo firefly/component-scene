@@ -29,7 +29,7 @@ FfxClip ffx_scene_clip(FfxPoint origin, FfxSize size, FfxPoint vpOrigin,
         vpX0 = 0;
     } else {
         // Viewport adjusted to left edge of object
-        vpX0 = objX0;
+        vpX0 = d;
     }
 
     // Object needs clipping to the right edge of the viewport
@@ -45,7 +45,7 @@ FfxClip ffx_scene_clip(FfxPoint origin, FfxSize size, FfxPoint vpOrigin,
         vpY0 = 0;
     } else {
         // Viewport adjusted to the top edge of the object
-        vpY0 = objY0;
+        vpY0 = d;
     }
 
     // Object needs clipping to the bottom edge of the viewport
