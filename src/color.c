@@ -5,7 +5,7 @@
 
 // Color Format:
 //  - RGBA = 00AA AAAA  RRRR RRRR  GGGG GGGG  BBBB BBBB
-//  - HSVA = 01AA AAAA  HHHH HHHH  HHHH SSSS  SSVV VVVV   (N => negative hue)
+//  - HSVA = 01AA AAAA  HHHH HHHH  HHHH SSSS  SSVV VVVV
 //  - Alpha is 0 for fully opaque and 0x20 for fully transparent, so that
 //    a default value of 0 is fully opaque.
 
@@ -22,37 +22,37 @@ static uint32_t _getH(color_ffxt c) { return (c >> 12) & 0xfff; }
 static uint32_t _getS(color_ffxt c) { return (c >> 6) & 0x3f; }
 static uint32_t _getV(color_ffxt c) { return (c >> 0) & 0x3f; }
 
-static uint32_t _getA(color_ffxt c) { return 0x20 - ((c >> 24) & 0x3f); }
+static uint32_t _getO(color_ffxt c) { return 0x20 - ((c >> 24) & 0x3f); }
+
+
+static uint32_t min(uint32_t a, uint32_t b) { return (a < b) ? a: b; }
+static uint32_t max(uint32_t a, uint32_t b) { return (a > b) ? a: b; }
 
 #define CLAMP(v,m)     (((v) <= (m)) ? (v): (m))
 
-color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t alpha) {
+
+color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t opacity) {
     color_ffxt result = 0;
 
     result |= CLAMP(r, 0xff) << 16;
     result |= CLAMP(g, 0xff) << 8;
     result |= CLAMP(b, 0xff);
-    result |= (0x20 - CLAMP(alpha, 0x20)) << 24;
+    result |= (MAX_OPACITY - CLAMP(opacity, MAX_OPACITY)) << 24;
 
     return result;
 }
 
-color_ffxt ffx_color_hsv(int32_t h, int32_t s, int32_t v, int32_t alpha) {
+color_ffxt ffx_color_hsv(int32_t h, int32_t s, int32_t v, int32_t opacity) {
     color_ffxt result = COLOR_HSV;
 
     result |= (h % 3960) << 12;
     result |= CLAMP(s, 0x3f) << 6;
     result |= CLAMP(v, 0x3f);
-    result |= (0x20 - CLAMP(alpha, 0x20)) << 24;
+    result |= (MAX_OPACITY - CLAMP(opacity, MAX_OPACITY)) << 24;
 
     return result;
 }
 
-// Stores RGB565 as a uint16_t
-//#define RGB16(r,g,b)     ((((uint16_t)(r) & 0xf8) << 8) | (((uint16_t)(g) & 0xfc) << 3) | (((uint16_t)(b) & 0xf8) >> 3))
-
-// Stores RGB888 as a uint32_t
-//#define RGB24(r,g,b)    ((rgb24_t)(((r) << 16) | ((g) << 8) | (b)))
 
 #define B6        (0x3f)
 #define B8        (0xff)
@@ -76,7 +76,7 @@ static color_ffxt _fromHSV(color_ffxt color) {
     // Normalize v to [0, 255] (8-bits)
     int32_t v = (_getV(color) * B8) / B6;
 
-    if (s == 0) { 
+    if (s == 0) {
         result |= (v << 16) | (v << 8) | v;
         return result;
     }
@@ -114,24 +114,18 @@ static color_ffxt _fromHSV(color_ffxt color) {
             break;
     }
 
-//printf("h=%ld s=%ld v=%ld region=%ld rem=%ld p=%ld qt=%ld\n", h, s, v, region, rem, p, qt);
+    //printf("h=%ld s=%ld v=%ld region=%ld rem=%ld p=%ld qt=%ld\n", h, s, v, region, rem, p, qt);
 
     return result;
 }
 
-static uint32_t min(uint32_t a, uint32_t b) {
-    return (a < b) ? a: b;
-}
-
-static uint32_t max(uint32_t a, uint32_t b) {
-    return (a > b) ? a: b;
-}
 
 static color_ffxt _fromRGB(color_ffxt color) {
     int32_t r = _getR(color), g = _getG(color), b = _getB(color);
     uint32_t rgbMin = min(r, min(g, b));
     uint32_t rgbMax = max(r, max(g, b));
 
+    // Mask out the RGB-specific bits; keep the alpha and set to HSV
     color_ffxt result = COLOR_HSV | (color & MASK_ALPHA);
 
     int32_t v = rgbMax;
@@ -161,13 +155,6 @@ rgb16_ffxt ffx_color_rgb16(color_ffxt color) {
     return RGB16((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
 }
 
-/*
-rgba16_t ffx_color_rgba16(color_t color) {
-    if (color & COLOR_HSV) { color = _fromHSV(color); }
-    return RGB16((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff) |
-      (ALPHA(color) << 16);
-}
-*/
 rgb24_ffxt ffx_color_rgb24(color_ffxt color) {
     if (color & COLOR_HSV) { color = _fromHSV(color); }
     return color & 0x00ffffff;
@@ -175,8 +162,8 @@ rgb24_ffxt ffx_color_rgb24(color_ffxt color) {
 
 rgba24_ffxt ffx_color_rgba24(color_ffxt color) {
     if (color & COLOR_HSV) { color = _fromHSV(color); }
-    uint32_t alpha = (_getA(color) * 255) >> 4;
-    return (alpha << 24) | (color & 0x00ffffff);
+    uint32_t opacity = (_getO(color) * 255) >> 4;
+    return (opacity << 24) | (color & 0x00ffffff);
 }
 
 static int32_t lerp(int32_t a, int32_t b, fixed_ffxt t) {
@@ -184,7 +171,7 @@ static int32_t lerp(int32_t a, int32_t b, fixed_ffxt t) {
 }
 
 color_ffxt ffx_color_lerpfx(color_ffxt c0, color_ffxt c1, fixed_ffxt t) {
-    int32_t a = lerp(_getA(c0), _getA(c1), t);
+    int32_t a = lerp(_getO(c0), _getO(c1), t);
 
     if (((c0 >> 31) + (c1 >> 31)) != 2) {
     }
@@ -203,7 +190,7 @@ static int32_t lerpRatio(int32_t a, int32_t b, int32_t top, int32_t bottom) {
 color_ffxt ffx_color_lerpRatio(color_ffxt c0, color_ffxt c1,
   int32_t top, int32_t bottom) {
 
-    int32_t a = lerpRatio(_getA(c0), _getA(c1), top, bottom);
+    int32_t a = lerpRatio(_getO(c0), _getO(c1), top, bottom);
 
     if ((c0 & COLOR_HSV) && (c1 & COLOR_HSV)) {
         int32_t h = lerpRatio(_getH(c0), _getH(c1), top, bottom);
@@ -258,17 +245,17 @@ color_ffxt ffx_color_hsv2rgb(color_ffxt color) {
 }
 
 size_t ffx_color_name(color_ffxt c, char *name, size_t length) {
-    uint32_t alpha = _getA(c);
+    uint32_t opacity = _getO(c);
 
-    if (alpha == 0) { return snprintf(name, length, "transparent"); }
+    if (opacity == 0) { return snprintf(name, length, "transparent"); }
 
     if (c & COLOR_HSV) {
         return snprintf(name, length, "HSV(%ld, %ld/63, %ld/63, %ld/32)",
-          _getS(c), _getS(c), _getV(c), alpha);
+          _getS(c), _getS(c), _getV(c), opacity);
     }
 
     return snprintf(name, length, "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)",
-      _getR(c), _getG(c), _getB(c), alpha);
+      _getR(c), _getG(c), _getB(c), opacity);
 }
 
 FfxColorHSV ffx_color_parseHSV(color_ffxt color) {
@@ -278,7 +265,7 @@ FfxColorHSV ffx_color_parseHSV(color_ffxt color) {
     hsv.hue = _getH(color);
     hsv.saturation = _getS(color);
     hsv.value = _getV(color);
-    hsv.alpha = _getA(color);
+    hsv.opacity = _getO(color);
     return hsv;
 }
 
@@ -289,13 +276,20 @@ FfxColorRGB ffx_color_parseRGB(color_ffxt color) {
     rgb.red = _getR(color);
     rgb.blue = _getB(color);
     rgb.green = _getG(color);
-    rgb.alpha = _getA(color);
+    rgb.opacity = _getO(color);
     return rgb;
 }
 
-bool ffx_color_isTransparent(color_ffxt color) {
-    return (_getA(color) == 0);
+uint8_t ffx_color_getOpacity(color_ffxt color) {
+    return _getO(color);
 }
+
+bool ffx_color_isTransparent(color_ffxt color) {
+    return (_getO(color) == 0);
+}
+
+//color_ffxt ffx_color_blend(color_ffxt foreground, color_ffxt background) {
+//}
 
 // Test program to validate HSV conversion
 /*
