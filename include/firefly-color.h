@@ -12,20 +12,6 @@ extern "C" {
 #include "firefly-curves.h"
 
 
-typedef struct FfxColorRGB {
-    int32_t red;
-    int32_t blue;
-    int32_t green;
-    int32_t opacity;
-} FfxColorRGB;
-
-typedef struct FfxColorHSV {
-    int32_t hue;
-    int32_t saturation;
-    int32_t value;
-    int32_t opacity;
-} FfxColorHSV;
-
 // RGB565 Format
 typedef uint16_t rgb16_ffxt;
 
@@ -50,6 +36,33 @@ typedef uint32_t color_ffxt;
 // Stores RGB565 as a uint16_t
 #define RGB16(r,g,b)       ((((uint32_t)(r) & 0xf8) << 8) | (((uint32_t)(g) & 0xfc) << 3) | (((uint32_t)(b) & 0xf8) >> 3))
 
+// Converts a n-bit value [0, (1 << n) - 1] to a fixed_ffxt [0, 0x10000]
+//
+// These can be used to convert (for example) a 4-bit alpha (the values
+// 0 through 15 inclusive) to a fixed value from 0x0000 to 0x10000 for
+// multiplying through for blending.
+//
+// All formulas gaurantee 0=>0 and (1<<n)-1=>0x10000 and require only
+// a single multiplication and bit-shift each. The constants have been
+// choosen to minimize the total drift across all values.
+#define FIXED_BITS_1(v)      (((v) * 65536) >> 0)
+#define FIXED_BITS_2(v)      (((v) * 43691) >> 1)
+#define FIXED_BITS_3(v)      (((v) * 74899) >> 3)
+#define FIXED_BITS_4(v)      (((v) * 34953) >> 3)
+#define FIXED_BITS_5(v)      (((v) * 67651) >> 5)
+#define FIXED_BITS_6(v)      (((v) * 532617) >> 9)
+#define FIXED_BITS_7(v)      (((v) * 264211) >> 9)
+#define FIXED_BITS_8(v)      (((v) * 32897) >> 7)
+#define FIXED_BITS_9(v)      (((v) * 4202561) >> 15)
+#define FIXED_BITS_10(v)     (((v) * 1049613) >> 14)
+#define FIXED_BITS_11(v)     (((v) * 262275) >> 13)
+#define FIXED_BITS_12(v)     (((v) * 262211) >> 14)
+#define FIXED_BITS_13(v)     (((v) * 262179) >> 15)
+#define FIXED_BITS_14(v)     (((v) * 65541) >> 14)
+#define FIXED_BITS_15(v)     (((v) * 65539) >> 15)
+
+// Black with base-2 fraction opacities. These can be highly optimized
+// for alpha-blending using only bitwise operators.
 #define RGBA_DARKER75        (0x18000000)
 #define RGBA_DARKER50        (0x10000000)
 #define RGBA_DARKER25        (0x08000000)
@@ -70,6 +83,7 @@ typedef uint32_t color_ffxt;
 #define OPACITY_80           (26)
 #define OPACITY_90           (29)
 #define OPACITY_100          (32)
+
 
 ///////////////////////////////
 // Creating color
@@ -138,8 +152,25 @@ rgba24_ffxt ffx_color_rgba24(color_ffxt color);
  */
 size_t ffx_color_name(color_ffxt color, char *name, size_t length);
 
-FfxColorHSV ffx_color_parseHSV(color_ffxt color);
+
+typedef struct FfxColorRGB {
+    int32_t red;
+    int32_t blue;
+    int32_t green;
+    int32_t opacity;
+} FfxColorRGB;
+
 FfxColorRGB ffx_color_parseRGB(color_ffxt color);
+
+
+typedef struct FfxColorHSV {
+    int32_t hue;
+    int32_t saturation;
+    int32_t value;
+    int32_t opacity;
+} FfxColorHSV;
+
+FfxColorHSV ffx_color_parseHSV(color_ffxt color);
 
 uint8_t ffx_color_getOpacity(color_ffxt color);
 
