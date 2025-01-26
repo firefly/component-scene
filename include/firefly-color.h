@@ -50,23 +50,26 @@ typedef uint32_t color_ffxt;
 // Stores RGB565 as a uint16_t
 #define RGB16(r,g,b)       ((((uint32_t)(r) & 0xf8) << 8) | (((uint32_t)(g) & 0xfc) << 3) | (((uint32_t)(b) & 0xf8) >> 3))
 
-#define RGBA_DARKER75       (0x18000000)
-#define RGBA_DARKER50       (0x10000000)
-#define RGBA_DARKER25       (0x08000000)
+#define RGBA_DARKER75        (0x18000000)
+#define RGBA_DARKER50        (0x10000000)
+#define RGBA_DARKER25        (0x08000000)
+
+#define MAX_VAL              (0x3f)
+#define MAX_SAT              (0x3f)
 
 #define MAX_OPACITY          (0x20)
 
-#define OPACITY_100          (32)
-#define OPACITY_90           (29)
-#define OPACITY_80           (26)
-#define OPACITY_70           (22)
-#define OPACITY_60           (19)
-#define OPACITY_50           (16)
-#define OPACITY_40           (13)
-#define OPACITY_30           (10)
-#define OPACITY_20            (6)
-#define OPACITY_10            (3)
 #define OPACITY_0             (0)
+#define OPACITY_10            (3)
+#define OPACITY_20            (6)
+#define OPACITY_30           (10)
+#define OPACITY_40           (13)
+#define OPACITY_50           (16)
+#define OPACITY_60           (19)
+#define OPACITY_70           (22)
+#define OPACITY_80           (26)
+#define OPACITY_90           (29)
+#define OPACITY_100          (32)
 
 ///////////////////////////////
 // Creating color

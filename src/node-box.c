@@ -3,30 +3,6 @@
 
 #include "firefly-scene-private.h"
 
-/*
-static void _animateColor(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
-    color_ffxt *color = ffx_scene_boxColor(node);
-    *color = ffx_color_lerpfx(p0.color, p1.color, t);
-}
-
-uint32_t ffx_scene_boxAnimateColor(FfxScene scene, FfxNode node,
-  color_ffxt target, uint32_t duration, FfxCurveFunc curve,
-  FfxSceneAnimationCompletion onComplete) {
-
-    FfxProperty *b = ffx_scene_nodePropertyB(node);
-
-    FfxProperty start, end;
-    start.color = b->color;
-    end.color = target;
-
-    FfxNode animate = ffx_scene_createAnimationNode(scene, node, start, end,
-      duration, _animateColor, curve, onComplete);
-    if (animate == NULL) { return 0; }
-
-    return 1;
-}
-*/
-
 
 typedef struct BoxNode {
     FfxSize size;
