@@ -4,131 +4,6 @@
 #include "firefly-scene-private.h"
 
 /*
-static void _renderDark50(FfxPoint pos, FfxProperty a, FfxProperty b, uint16_t *frameBuffer, int32_t y0, int32_t height) {
-
-    // The box is above the fragment or to the right of the display; skip
-    if (pos.y >= y0 + height || pos.x >= 240) { return; }
-
-    // Compute start y and height within the fragment
-    int32_t sy = pos.y - y0;
-    int32_t h = a.size.height;
-    if (sy < 0) {
-        h += sy;
-        sy = 0;
-    }
-    if (h <= 0) { return; }
-
-    // Compute the start x and width within the fragment
-    int32_t sx = pos.x;
-    int32_t w = a.size.width;
-    if (sx < 0) {
-        w += sx;
-        sx = 0;
-    }
-    if (w <= 0) { return; }
-
-    // Extends past the fragment bounds; shrink
-    if (sy + h > height) { h = height - sy; }
-    if (sx + w > 240) { w = 240 - sx; }
-
-    for (uint32_t y = 0; y < h; y++) {
-        uint16_t *output = &frameBuffer[240 * (sy + y) + sx];
-        for (uint32_t x = 0; x < w; x++) {
-            // (RRRR 0GGG G0BB BBB0) >> 1
-            uint16_t darker = ((*output) & 0xf7be) >> 1;
-            *output++ = darker;
-        }
-    }
-}
-
-static void _renderDark75(FfxPoint pos, FfxProperty a, FfxProperty b, uint16_t *frameBuffer, int32_t y0, int32_t height) {
-
-    // The box is above the fragment or to the right of the display; skip
-    if (pos.y >= y0 + height || pos.x >= 240) { return; }
-
-    // Compute start y and height within the fragment
-    int32_t sy = pos.y - y0;
-    int32_t h = a.size.height;
-    if (sy < 0) {
-        h += sy;
-        sy = 0;
-    }
-    if (h <= 0) { return; }
-
-    // Compute the start x and width within the fragment
-    int32_t sx = pos.x;
-    int32_t w = a.size.width;
-    if (sx < 0) {
-        w += sx;
-        sx = 0;
-    }
-    if (w <= 0) { return; }
-
-    // Extends past the fragment bounds; shrink
-    if (sy + h > height) { h = height - sy; }
-    if (sx + w > 240) { w = 240 - sx; }
-
-    for (uint32_t y = 0; y < h; y++) {
-        uint16_t *output = &frameBuffer[240 * (sy + y) + sx];
-        for (uint32_t x = 0; x < w; x++) {
-            // (RRR0 0GGG G00B BB00) >> 2
-            uint16_t darker = ((*output) & 0xe79c) >> 2;
-            *output++ = darker;
-        }
-    }
-}
-
-static void _render(FfxPoint pos, FfxProperty a, FfxProperty b, uint16_t *frameBuffer, int32_t y0, int32_t height) {
-
-    // The box is above the fragment or to the right of the display; skip
-    if (pos.y >= y0 + height || pos.x >= 240) { return; }
-
-    // Compute start y and height within the fragment
-    int32_t sy = pos.y - y0;
-    int32_t h = a.size.height;
-    if (sy < 0) {
-        h += sy;
-        sy = 0;
-    }
-    if (h <= 0) { return; }
-
-    // Compute the start x and width within the fragment
-    int32_t sx = pos.x;
-    int32_t w = a.size.width;
-    if (sx < 0) {
-        w += sx;
-        sx = 0;
-    }
-    if (w <= 0) { return; }
-
-    // Extends past the fragment bounds; shrink
-    if (sy + h > height) { h = height - sy; }
-    if (sx + w > 240) { w = 240 - sx; }
-
-    rgb16_ffxt _color = ffx_color_rgb16(b.color);
-    uint16_t color = _color & 0xffff;
-
-    for (uint32_t y = 0; y < h; y++) {
-        uint16_t *output = &frameBuffer[240 * (sy + y) + sx];
-        for (uint32_t x = 0; x < w; x++) {
-              *output++ = color;
-        }
-    }
-}
-
-static void _sequence(FfxScene scene, FfxPoint worldPos, FfxNode node) {
-    color_ffxt *color = ffx_scene_boxColor(node);
-    if (*color == RGB_DARK50) {
-        ffx_scene_createRenderNode(scene, node, worldPos, _renderDark50);
-    } else if (*color == RGB_DARK75) {
-        ffx_scene_createRenderNode(scene, node, worldPos, _renderDark75);
-    } else {
-        ffx_scene_createRenderNode(scene, node, worldPos, _render);
-    }
-}
-*/
-
-/*
 static void _animateColor(FfxNode node, fixed_ffxt t, FfxProperty p0, FfxProperty p1) {
     color_ffxt *color = ffx_scene_boxColor(node);
     *color = ffx_color_lerpfx(p0.color, p1.color, t);
@@ -184,6 +59,80 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     render->position = pos;
 }
 
+static void renderBoxBlend(uint16_t *frameBuffer, int32_t ox, int32_t oy,
+  int32_t width, int32_t height, color_ffxt _color) {
+
+    // Get the color an RGB565 components
+    FfxColorRGB color = ffx_color_parseRGB(_color);
+    int r = color.red >> 3;
+    int g = color.green >> 2;
+    int b = color.blue >> 3;
+
+    // @TODO: Can I keep this as a fixed.26.6 and just >> 6?
+
+    // Pad alpha with 11 zeros (i.e. 0x20 => 0x10000; 1 in fixed-point)
+    fixed_ffxt alpha = color.opacity << 11;
+    fixed_ffxt alpha_1 = FM_1 - alpha;
+
+    for (uint32_t y = 0; y < height; y++) {
+        uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
+        for (uint32_t x = 0; x < width; x++) {
+
+            // Get the background RGB565 components
+            uint16_t bg = *output;
+            int bgR = bg >> 11;
+            int bgG = (bg >> 5) & 0x3f;
+            int bgB = bg & 0x1f;
+
+            // Blend the values and convert from fixed-point
+            int blendR = ((alpha * r) + (alpha_1 * bgR)) >> 16;
+            int blendG = ((alpha * g) + (alpha_1 * bgG)) >> 16;
+            int blendB = ((alpha * b) + (alpha_1 * bgB)) >> 16;
+
+            *output++ = (blendR << 11) | (blendG << 5) | blendB;
+        }
+    }
+}
+
+static void renderBoxDarker50(uint16_t *frameBuffer, int32_t ox, int32_t oy,
+  int32_t width, int32_t height) {
+
+    for (uint32_t y = 0; y < height; y++) {
+        uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
+        for (uint32_t x = 0; x < width; x++) {
+            // (RRRR 0GGG G0BB BBB0) >> 1
+            uint16_t darker = ((*output) & 0xf7be) >> 1;
+            *output++ = darker;
+        }
+    }
+}
+
+static void renderBoxDarker75(uint16_t *frameBuffer, int32_t ox, int32_t oy,
+  int32_t width, int32_t height) {
+
+    for (uint32_t y = 0; y < height; y++) {
+        uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
+        for (uint32_t x = 0; x < width; x++) {
+            // (RRR0 0GGG G00B BB00) >> 2
+            uint16_t darker = ((*output) & 0xe79c) >> 2;
+            *output++ = darker;
+        }
+    }
+}
+
+static void renderBoxOpaque(uint16_t *frameBuffer, int32_t ox, int32_t oy,
+  int32_t width, int32_t height, color_ffxt _color) {
+
+    uint16_t color = ffx_color_rgb16(_color) & 0xffff;
+
+    for (uint32_t y = 0; y < height; y++) {
+        uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
+        for (uint32_t x = 0; x < width; x++) {
+            *output++ = color;
+        }
+    }
+}
+
 static void renderFunc(void *_render, uint16_t *frameBuffer,
   FfxPoint origin, FfxSize size) {
 
@@ -192,17 +141,30 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     FfxClip clip = ffx_scene_clip(render->position, render->size, origin,
       size);
 
-    if (clip.width == 0) { return; }
+    uint8_t opacity = ffx_color_getOpacity(render->color);
 
-    rgb16_ffxt _color = ffx_color_rgb16(render->color);
-    uint16_t color = _color & 0xffff;
+    if (clip.width == 0 || opacity == 0) { return; }
 
-    for (uint32_t y = 0; y < clip.height; y++) {
-        uint16_t *output = &frameBuffer[240 * (clip.vpY + y) + clip.vpX];
-        for (uint32_t x = 0; x < clip.width; x++) {
-              *output++ = color;
-        }
+    if (render->color == RGBA_DARKER50) {
+        renderBoxDarker50(frameBuffer, clip.vpX, clip.vpY, clip.width,
+          clip.height);
+        return;
     }
+
+    if (render->color == RGBA_DARKER75) {
+        renderBoxDarker75(frameBuffer, clip.vpX, clip.vpY, clip.width,
+          clip.height);
+        return;
+    }
+
+    if (opacity == MAX_OPACITY) {
+        renderBoxOpaque(frameBuffer, clip.vpX, clip.vpY, clip.width,
+          clip.height, render->color);
+        return;
+    }
+
+    renderBoxBlend(frameBuffer, clip.vpX, clip.vpY, clip.width, clip.height,
+      render->color);
 }
 
 static void dumpFunc(FfxNode node, int indent) {
