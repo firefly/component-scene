@@ -47,15 +47,15 @@ static void destroyFunc(FfxNode node) {
 }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    BoxNode *state = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node);
 
     FfxPoint pos = ffx_sceneNode_getPosition(node);
     pos.x += worldPos.x;
     pos.y += worldPos.y;
 
     BoxRender *render = ffx_scene_createRender(node, sizeof(BoxRender));
-    render->size = state->size;
-    render->color = state->color;
+    render->size = box->size;
+    render->color = box->color;
     render->position = pos;
 }
 
@@ -170,14 +170,14 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
 static void dumpFunc(FfxNode node, int indent) {
     FfxPoint pos = ffx_sceneNode_getPosition(node);
 
-    BoxNode *state = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node);
 
     char colorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(state->color, colorName, sizeof(colorName));
+    ffx_color_name(box->color, colorName, sizeof(colorName));
 
     for (int i = 0; i < indent; i++) { printf("  "); }
     printf("<Box pos=%dx%d size=%dx%d color=%s>\n", pos.x, pos.y,
-      state->size.width, state->size.height, colorName);
+      box->size.width, box->size.height, colorName);
 }
 
 static const FfxNodeVTable vtable = {
@@ -194,8 +194,8 @@ static const FfxNodeVTable vtable = {
 FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(BoxNode));
 
-    BoxNode *state = ffx_sceneNode_getState(node);
-    state->size = size;
+    BoxNode *box = ffx_sceneNode_getState(node);
+    box->size = size;
 
     return node;
 }
@@ -205,22 +205,32 @@ FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size) {
 // Properties
 
 color_ffxt ffx_sceneBox_getColor(FfxNode node) {
-    BoxNode *state = ffx_sceneNode_getState(node);
-    return state->color;
+    BoxNode *box = ffx_sceneNode_getState(node);
+    return box->color;
+}
+
+static void setColor(FfxNode node, color_ffxt color) {
+    BoxNode *box = ffx_sceneNode_getState(node);
+    box->color = color;
 }
 
 void ffx_sceneBox_setColor(FfxNode node, color_ffxt color) {
-    BoxNode *state = ffx_sceneNode_getState(node);
-    state->color = color;
+    BoxNode *box = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createColorAction(node, box->color, color, setColor);
+}
+
+static void setSize(FfxNode node, FfxSize size) {
+    BoxNode *box = ffx_sceneNode_getState(node);
+    box->size = size;
 }
 
 FfxSize ffx_sceneBox_getSize(FfxNode node) {
-    BoxNode *state = ffx_sceneNode_getState(node);
-    return state->size;
+    BoxNode *box = ffx_sceneNode_getState(node);
+    return box->size;
 }
 
 void ffx_sceneBox_setSize(FfxNode node, FfxSize size) {
-    BoxNode *state = ffx_sceneNode_getState(node);
-    state->size = size;
+    BoxNode *box = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createSizeAction(node, box->size, size, setSize);
 }
 

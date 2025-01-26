@@ -97,17 +97,15 @@ FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
 // Methods
 
 static void destroyFunc(FfxNode node) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    if (state->text) {
-        ffx_sceneNode_memFree(node, state->text);
-        state->text = NULL;
-    }
+    ffx_sceneLabel_setText(node, NULL);
 }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    LabelNode *state = ffx_sceneNode_getState(node);
+    LabelNode *label = ffx_sceneNode_getState(node);
 
-    size_t strLen = strlen(state->text);
+    if (label->text == NULL) { return; }
+
+    size_t strLen = strlen(label->text);
     if (strLen == 0) { return; }
 
     // Include the null termination and round up to the nearest word
@@ -118,12 +116,12 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     pos.y += worldPos.y;
 
     LabelRender *render = ffx_scene_createRender(node, sizeof(LabelRender) + strLen);
-    render->font = state->font;
-    render->textColor = state->textColor;
-    render->outlineColor = state->outlineColor;
+    render->font = label->font;
+    render->textColor = label->textColor;
+    render->outlineColor = label->outlineColor;
     render->position = pos;
 
-    strcpy((char*)&render[1], state->text);
+    strcpy((char*)&render[1], label->text);
 }
 
 static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
@@ -244,21 +242,21 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
 static void dumpFunc(FfxNode node, int indent) {
     FfxPoint pos = ffx_sceneNode_getPosition(node);
 
-    LabelNode *state = ffx_sceneNode_getState(node);
+    LabelNode *label = ffx_sceneNode_getState(node);
 
     char textColorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(state->textColor, textColorName, sizeof(textColorName));
+    ffx_color_name(label->textColor, textColorName, sizeof(textColorName));
 
     char outlineColorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(state->outlineColor, outlineColorName,
+    ffx_color_name(label->outlineColor, outlineColorName,
       sizeof(outlineColorName));
 
-    int fontSize = state->font & FfxFontSizeMask;
+    int fontSize = label->font & FfxFontSizeMask;
 
     for (int i = 0; i < indent; i++) { printf("  "); }
     printf("<Label pos=%dx%d font=%dpt%s color=%s outline=%s text=\"%s\">\n", pos.x,
-      pos.y, fontSize, (state->font & FfxFontBoldMask) ? "-bold": "",
-      textColorName, outlineColorName, state->text);
+      pos.y, fontSize, (label->font & FfxFontBoldMask) ? "-bold": "",
+      textColorName, outlineColorName, label->text);
 }
 
 static const FfxNodeVTable vtable = {
@@ -276,10 +274,10 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
 
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(LabelNode));
 
-    LabelNode *state = ffx_sceneNode_getState(node);
-    state->textColor = ffx_color_rgb(255, 255, 255, 0x3c);
-    state->outlineColor = ffx_color_rgb(0, 0, 0, 0);
-    state->font = font;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    label->textColor = ffx_color_rgb(255, 255, 255, 0x3c);
+    label->outlineColor = ffx_color_rgb(0, 0, 0, 0);
+    label->font = font;
 
     ffx_sceneLabel_setText(node, text);
 
@@ -291,11 +289,11 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
 // Properties
 
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
-    LabelNode *state = ffx_sceneNode_getState(node);
+    LabelNode *label = ffx_sceneNode_getState(node);
 
     if (length == 0) { return 0; }
 
-    if (state->text == NULL) {
+    if (label->text == NULL) {
         output[0] = 0;
         return 0;
     }
@@ -303,7 +301,7 @@ size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
     char c = 1;
     int i = 0;
     while (c && i < length) {
-        c = state->text[i];
+        c = label->text[i];
         output[i++] = c;
     }
 
@@ -311,46 +309,62 @@ size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
 }
 
 void ffx_sceneLabel_setText(FfxNode node, const char* text) {
-    LabelNode *state = ffx_sceneNode_getState(node);
+    LabelNode *label = ffx_sceneNode_getState(node);
 
-    if (state->text) {
-        ffx_sceneNode_memFree(node, state->text);
-        state->text = NULL;
+    if (label->text) {
+        ffx_sceneNode_memFree(node, label->text);
+        label->text = NULL;
     }
 
     size_t length = strlen(text);
-    state->text = ffx_sceneNode_memAlloc(node, length + 1);
-    strcpy(state->text, text);
+    if (length) {
+        label->text = ffx_sceneNode_memAlloc(node, length + 1);
+        strcpy(label->text, text);
+    } else {
+        label->text = NULL;
+    }
 }
 
 FfxFont ffx_sceneLabel_getFont(FfxNode node) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    return state->font;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    return label->font;
 }
 
 void ffx_sceneLabel_setFont(FfxNode node, FfxFont font) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    state->font = font;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    label->font = font;
 }
 
 color_ffxt ffx_sceneLabel_getTextColor(FfxNode node) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    return state->textColor;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    return label->textColor;
+}
+
+static void setTextColor(FfxNode node, color_ffxt color) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+    label->textColor = color;
 }
 
 void ffx_sceneLabel_setTextColor(FfxNode node, color_ffxt color) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    state->textColor = color;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createColorAction(node, label->textColor, color,
+      setTextColor);
 }
 
 color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    return state->outlineColor;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    return label->outlineColor;
+}
+
+static void setOutlineColor(FfxNode node, color_ffxt color) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+    label->outlineColor = color;
 }
 
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color) {
-    LabelNode *state = ffx_sceneNode_getState(node);
-    state->outlineColor = color;
+    LabelNode *label = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createColorAction(node, label->outlineColor, color,
+      setOutlineColor);
 }
 
 

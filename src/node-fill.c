@@ -15,10 +15,10 @@ typedef struct FillNode {
 static void destroyFunc(FfxNode node) { }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    FillNode *state = ffx_sceneNode_getState(node);
+    FillNode *fill = ffx_sceneNode_getState(node);
 
     FillNode *render = ffx_scene_createRender(node, sizeof(FillNode));
-    render->color = state->color;
+    render->color = fill->color;
 }
 
 static void renderFunc(void *_render, uint16_t *_frameBuffer,
@@ -39,10 +39,10 @@ static void renderFunc(void *_render, uint16_t *_frameBuffer,
 }
 
 static void dumpFunc(FfxNode node, int indent) {
-    FillNode *state = ffx_sceneNode_getState(node);
+    FillNode *fill = ffx_sceneNode_getState(node);
 
     char colorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(state->color, colorName, sizeof(colorName));
+    ffx_color_name(fill->color, colorName, sizeof(colorName));
 
     for (int i = 0; i < indent; i++) { printf("  "); }
     printf("<Fill color=%s>\n", colorName);
@@ -62,8 +62,8 @@ static const FfxNodeVTable vtable = {
 FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(FillNode));
 
-    FillNode *state = ffx_sceneNode_getState(node);
-    state->color = color;
+    FillNode *fill = ffx_sceneNode_getState(node);
+    fill->color = color;
 
     return node;
 }
@@ -73,11 +73,16 @@ FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
 // Properties
 
 color_ffxt ffx_sceneFill_getColor(FfxNode node) {
-    FillNode *state = ffx_sceneNode_getState(node);
-    return state->color;
+    FillNode *fill = ffx_sceneNode_getState(node);
+    return fill->color;
+}
+
+static void setColor(FfxNode node, color_ffxt color) {
+    FillNode *fill = ffx_sceneNode_getState(node);
+    fill->color = color;
 }
 
 void ffx_sceneFill_setColor(FfxNode node, color_ffxt color) {
-    FillNode *state = ffx_sceneNode_getState(node);
-    state->color = color;
+    FillNode *fill = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createColorAction(node, fill->color, color, setColor);
 }

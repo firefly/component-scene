@@ -107,6 +107,24 @@ void* ffx_sceneNode_createAction(FfxNode node, size_t stateSize,
   FfxNodeActionFunc actionFunc);
 
 
+typedef void (*FfxNodeActionSetColorFunc)(FfxNode node, color_ffxt color);
+
+bool ffx_sceneNode_createColorAction(FfxNode node, color_ffxt c0,
+  color_ffxt c1, FfxNodeActionSetColorFunc setColorFunc);
+
+
+typedef void (*FfxNodeActionSetPointFunc)(FfxNode node, FfxPoint point);
+
+bool ffx_sceneNode_createPointAction(FfxNode node, FfxPoint p0, FfxPoint p1,
+  FfxNodeActionSetPointFunc setPointFunc);
+
+
+typedef void (*FfxNodeActionSetSizeFunc)(FfxNode node, FfxSize size);
+
+bool ffx_sceneNode_createSizeAction(FfxNode node, FfxSize s0, FfxSize s1,
+  FfxNodeActionSetSizeFunc setSizeFunc);
+
+
 //////////////////////////////
 // Debugging
 

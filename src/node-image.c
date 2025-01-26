@@ -375,16 +375,21 @@ FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
 // Properties
 
 const uint16_t* ffx_sceneImage_getImage(FfxNode node) {
-    ImageNode *state = ffx_sceneNode_getState(node);
-    return state->data;
+    ImageNode *img = ffx_sceneNode_getState(node);
+    return img->data;
 }
 
 color_ffxt ffx_sceneImage_getTint(FfxNode node) {
-    ImageNode *state = ffx_sceneNode_getState(node);
-    return state->tint;
+    ImageNode *img = ffx_sceneNode_getState(node);
+    return img->tint;
+}
+
+static void setTint(FfxNode node, color_ffxt tint) {
+    ImageNode *img = ffx_sceneNode_getState(node);
+    img->tint = tint;
 }
 
 void ffx_sceneImage_setTint(FfxNode node, color_ffxt tint) {
-    ImageNode *state = ffx_sceneNode_getState(node);
-    state->tint = tint;
+    ImageNode *img = ffx_sceneNode_getState(node);
+    ffx_sceneNode_createColorAction(node, img->tint, tint, setTint);
 }

@@ -87,20 +87,9 @@ FfxNode ffx_sceneNode_getScene(FfxNode _node) {
     return node->scene;
 }
 
-typedef struct PositionState {
-    FfxPoint p0, p1;
-} PositionState;
-
-static void animatePosition(FfxNode _node, fixed_ffxt t, void *_state) {
-
+FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
     Node *node = _node;
-
-    PositionState *state = _state;
-    FfxPoint p0 = state->p0;
-    FfxPoint p1 = state->p1;
-
-    node->position.x = p0.x + scalarfx(p1.x - p0.x, t);
-    node->position.y = p0.y + scalarfx(p1.y - p0.y, t);
+    return node->nextSibling;
 }
 
 FfxPoint ffx_sceneNode_getPosition(FfxNode _node) {
@@ -108,20 +97,14 @@ FfxPoint ffx_sceneNode_getPosition(FfxNode _node) {
     return node->position;
 }
 
-void ffx_sceneNode_setPosition(FfxNode _node, FfxPoint pos) {
-    if (ffx_sceneNode_isCapturing(_node)) {
-
-        PositionState *state = ffx_sceneNode_createAction(_node,
-          sizeof(PositionState), animatePosition);
-
-        state->p0 = ffx_sceneNode_getPosition(_node);
-        state->p1 = pos;
-
-        return;
-    }
-
+static void setPosition(FfxNode _node, FfxPoint position) {
     Node *node = _node;
-    node->position = pos;
+    node->position = position;
+}
+
+void ffx_sceneNode_setPosition(FfxNode _node, FfxPoint pos) {
+    Node *node = _node;
+    ffx_sceneNode_createPointAction(node, node->position, pos, setPosition);
 }
 
 void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
@@ -132,9 +115,109 @@ void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
     });
 }
 
-FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
-    Node *node = _node;
-    return node->nextSibling;
+
+//////////////////////////
+// Property Animators
+
+typedef struct ColorState {
+    color_ffxt v0;
+    color_ffxt v1;
+    FfxNodeActionSetColorFunc setFunc;
+} ColorState;
+
+static void animateColor(FfxNode node, fixed_ffxt t, void *_state) {
+    ColorState *state = _state;
+    state->setFunc(node, ffx_color_lerpfx(state->v0, state->v1, t));
+}
+
+bool ffx_sceneNode_createColorAction(FfxNode node, color_ffxt v0,
+  color_ffxt v1, FfxNodeActionSetColorFunc setFunc) {
+
+    if (!ffx_sceneNode_isCapturing(node)) {
+        setFunc(node, v1);
+        return false;
+    }
+
+    ColorState *state = ffx_sceneNode_createAction(node, sizeof(ColorState),
+      animateColor);
+
+    state->v0 = v0;
+    state->v1 = v1;
+    state->setFunc = setFunc;
+
+    return true;
+}
+
+
+typedef struct SizeState {
+    FfxSize v0;
+    FfxSize v1;
+    FfxNodeActionSetSizeFunc setFunc;
+} SizeState;
+
+static void animateSize(FfxNode node, fixed_ffxt t, void *_state) {
+    SizeState *state = _state;
+    FfxSize v0 = state->v0;
+    FfxSize v1 = state->v1;
+
+    state->setFunc(node, (FfxSize){
+        .width = v0.width + scalarfx(v1.width - v0.width, t),
+        .height = v0.height + scalarfx(v1.height - v0.height, t)
+    });
+}
+
+bool ffx_sceneNode_createSizeAction(FfxNode node, FfxSize v0, FfxSize v1,
+  FfxNodeActionSetSizeFunc setFunc) {
+
+    if (!ffx_sceneNode_isCapturing(node)) {
+        setFunc(node, v1);
+        return false;
+    }
+
+    SizeState *state = ffx_sceneNode_createAction(node, sizeof(SizeState),
+      animateSize);
+
+    state->v0 = v0;
+    state->v1 = v1;
+    state->setFunc = setFunc;
+
+    return true;
+}
+
+
+typedef struct PointState {
+    FfxPoint v0;
+    FfxPoint v1;
+    FfxNodeActionSetPointFunc setFunc;
+} PointState;
+
+static void animatePoint(FfxNode node, fixed_ffxt t, void *_state) {
+    PointState *state = _state;
+    FfxPoint v0 = state->v0;
+    FfxPoint v1 = state->v1;
+
+    state->setFunc(node, (FfxPoint){
+        .x = v0.x + scalarfx(v1.x - v0.x, t),
+        .y = v0.y + scalarfx(v1.y - v0.y, t)
+    });
+}
+
+bool ffx_sceneNode_createPointAction(FfxNode node, FfxPoint v0, FfxPoint v1,
+  FfxNodeActionSetPointFunc setFunc) {
+
+    if (!ffx_sceneNode_isCapturing(node)) {
+        setFunc(node, v1);
+        return false;
+    }
+
+    PointState *state = ffx_sceneNode_createAction(node, sizeof(PointState),
+      animatePoint);
+
+    state->v0 = v0;
+    state->v1 = v1;
+    state->setFunc = setFunc;
+
+    return true;
 }
 
 
