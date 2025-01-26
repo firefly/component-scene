@@ -251,7 +251,7 @@ size_t ffx_color_name(color_ffxt c, char *name, size_t length) {
 
     if (c & COLOR_HSV) {
         return snprintf(name, length, "HSV(%ld, %ld/63, %ld/63, %ld/32)",
-          _getS(c), _getS(c), _getV(c), opacity);
+          _getH(c), _getS(c), _getV(c), opacity);
     }
 
     return snprintf(name, length, "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)",
