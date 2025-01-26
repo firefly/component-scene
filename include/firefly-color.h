@@ -36,15 +36,21 @@ typedef uint32_t color_ffxt;
 // Stores RGB565 as a uint16_t
 #define RGB16(r,g,b)       ((((uint32_t)(r) & 0xf8) << 8) | (((uint32_t)(g) & 0xfc) << 3) | (((uint32_t)(b) & 0xf8) >> 3))
 
-// Converts a n-bit value [0, (1 << n) - 1] to a fixed_ffxt [0, 0x10000]
-//
-// These can be used to convert (for example) a 4-bit alpha (the values
-// 0 through 15 inclusive) to a fixed value from 0x0000 to 0x10000 for
-// multiplying through for blending.
-//
-// All formulas gaurantee 0=>0 and (1<<n)-1=>0x10000 and require only
-// a single multiplication and bit-shift each. The constants have been
-// choosen to minimize the total drift across all values.
+/**
+ *  Converts a n-bit value [0, (1 << n) - 1] to a fixed:15.16 [0, 0x10000].
+ *
+ *  These can be used to convert (for example) a 4-bit alpha (the values
+ *  0 through 15 inclusive) to a fixed value from 0x0000 to 0x10000 for
+ *  multiplying through for blending.
+ *
+ *  For example: for a 4-bit V, this is euivalant of V * 16 / 15.
+ *
+ *  All formulas gaurantee 0=>0 and (1<<n)-1=>0x10000 and require only
+ *  a single multiplication and bit-shift each. The constants have been
+ *  choosen to minimize the total drift across all values.
+ *
+ *  See: /tools/reference/generate-scale.c
+ */
 #define FIXED_BITS_1(v)      (((v) * 65536) >> 0)
 #define FIXED_BITS_2(v)      (((v) * 43691) >> 1)
 #define FIXED_BITS_3(v)      (((v) * 74899) >> 3)

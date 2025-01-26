@@ -8,46 +8,96 @@ extern "C" {
 
 #include <stdint.h>
 
+/**
+ *  A library for fixed:15.16 numeric operations.
+ *
+ *  This allows an int32_t to be used to store higher-precision
+ *  values and for maths to be performed on, while retaining the
+ *  performance of integer arithmetic.
+ */
 
+/**
+ *  A fixed:15.16 value.
+ */
 typedef int32_t fixed_ffxt;
 
 
 /**
- *  Fixed-point constants
+ *  Constants
  */
 
-extern const fixed_ffxt FM_1;
-extern const fixed_ffxt FM_1_2;
-extern const fixed_ffxt FM_1_4;
-extern const fixed_ffxt FM_1_8;
+extern const fixed_ffxt FM_1;      // 1
+extern const fixed_ffxt FM_1_2;    // 1 / 2
+extern const fixed_ffxt FM_1_4;    // 1 / 4
+extern const fixed_ffxt FM_1_8;    // 1 / 8
 
-extern const fixed_ffxt FM_PI_2;
-extern const fixed_ffxt FM_PI;
-extern const fixed_ffxt FM_3PI_2;
-extern const fixed_ffxt FM_2PI;
+extern const fixed_ffxt FM_PI_2;   // pi / 2
+extern const fixed_ffxt FM_PI;     // pi
+extern const fixed_ffxt FM_3PI_2;  // 3 * pi / 2
+extern const fixed_ffxt FM_2PI;    // 2 * pi
 
-extern const fixed_ffxt FM_E;
+extern const fixed_ffxt FM_E;      // e
 
-extern const fixed_ffxt FM_MAX;
-extern const fixed_ffxt FM_MIN;
+extern const fixed_ffxt FM_MAX;    // Largest possible positive value
+extern const fixed_ffxt FM_MIN;    // Lowest possible negative value
 
 
 /**
- *  Returns %%value%% as a fixed-point value with 0 as its
- *  decimals. e.g. toFx(1) == FM_1
+ *  Returns %%value%% as a fixed:15.16 with 0 as its decimals.
+ *
+ *  For example: tofx(1) == FM_1
  */
 fixed_ffxt tofx(int32_t value);
+
+/**
+ *  Returns a fixed:15.16 for top / bottom, preserving any possible
+ *  decimals.
+ *
+ *  For example: ratiofx(1, 2) == FM_1_2
+ */
 fixed_ffxt ratiofx(int32_t top, int32_t bottom);
 
+
+/**
+ *  Returns the value of %%x%% / %%y%%.
+ */
 fixed_ffxt divfx(fixed_ffxt x, fixed_ffxt y);
+
+/**
+ *  Returns the value of %%x%% * %%y%%.
+ */
 fixed_ffxt mulfx(fixed_ffxt x, fixed_ffxt y);
-int32_t scalarfx(int32_t scalar, fixed_ffxt x);
 
-fixed_ffxt log2fx(fixed_ffxt arg);
-fixed_ffxt exp2fx(fixed_ffxt arg);
-fixed_ffxt powfx(fixed_ffxt a, fixed_ffxt b);
+/**
+ *  Returns %%scalar%% scaled by %%t%%.
+ */
+int32_t scalarfx(int32_t scalar, fixed_ffxt t);
 
+/**
+ *  Returns the log (base-2) of %%x%%.
+ */
+fixed_ffxt log2fx(fixed_ffxt x);
+
+/**
+ *  Returns the value of e raised to the power of  %%x%%.
+ */
+fixed_ffxt exp2fx(fixed_ffxt x);
+
+/**
+ *  Returns the value of %%x%% raised to the power of  %%y%%.
+ */
+fixed_ffxt powfx(fixed_ffxt x, fixed_ffxt y);
+
+/**
+ *  Returns the sine of %%x%%.
+ *
+ *  A third-order approximation is used and the values of 0
+ */
 fixed_ffxt sinfx(fixed_ffxt x);
+
+/**
+ *  Returns the cosine of %%x%%.
+ */
 fixed_ffxt cosfx(fixed_ffxt x);
 
 
