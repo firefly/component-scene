@@ -12,6 +12,9 @@ extern "C" {
 #include "firefly-scene.h"
 
 
+//////////////////////////////
+// Methods (via vtable)
+
 typedef void (*FfxNodeDestroyFunc)(FfxNode node);
 
 typedef void (*FfxNodeSequenceFunc)(FfxNode node, FfxPoint worldPos);
@@ -30,9 +33,13 @@ typedef struct FfxNodeVTable {
     FfxNodeSequenceFunc sequenceFunc;
     FfxNodeRenderFunc renderFunc;
 
+    // Dumps the node details to the terminal
     FfxNodeDumpFunc dumpFunc;
 } FfxNodeVTable;
 
+
+//////////////////////////////
+// Memory
 
 void* ffx_scene_memAlloc(FfxScene scene, size_t size);
 void ffx_scene_memFree(FfxScene scene, void *ptr);
@@ -40,16 +47,32 @@ void ffx_scene_memFree(FfxScene scene, void *ptr);
 void* ffx_sceneNode_memAlloc(FfxNode node, size_t size);
 void ffx_sceneNode_memFree(FfxNode node, void *ptr);
 
+
 //////////////////////////////
 // Life-cycle
 
+/**
+ *  Creates a new Node with the %%vtable%% in %%scene%%.
+ *
+ *  An additional %%stateSize%% bytes are allocated and can be
+ *  accessed using getState to store Node state.
+ */
 FfxNode ffx_scene_createNode(FfxScene scene, const FfxNodeVTable *vtable,
   size_t stateSize);
 
+/**
+ *  Gets a pointer to the state allocated in the createNode call.
+ */
 void* ffx_sceneNode_getState(FfxNode node);
 
+/**
+ *  Frees a Node.
+ */
 void ffx_sceneNode_free(FfxNode node);
 
+/**
+ *  Access a Node's sibling. @TOOD: Move this to internal
+ */
 FfxNode ffx_sceneNode_getNextSibling(FfxNode node);
 
 
@@ -63,12 +86,23 @@ void* ffx_scene_createRender(FfxNode node, size_t stateSize);
 //////////////////////////////
 // Animations
 
+/**
+ *  Returns whether the node is currently capturing animations.
+
+ *  Use this in setters to determine whether to set a value or
+ *  instead queue an animtion transition of the property.
+ */
 bool ffx_sceneNode_isCapturing(FfxNode node);
 
+typedef void (*FfxNodeActionFunc)(FfxNode node, fixed_ffxt t, void *state);
 
-typedef void (*FfxNodeActionFunc)(FfxNode node, fixed_ffxt t,
-  void *state);
-
+/**
+ *  Creates an action, which updates the %%node%% throughout an animation
+ *  through repeated calls (during each step) to %%actionFunc%%.
+ *
+ *  The returned void* is %%stateSize%% bytes available to store any
+ *  necessary state, passed to %%actionFunc%%.
+ */
 void* ffx_sceneNode_createAction(FfxNode node, size_t stateSize,
   FfxNodeActionFunc actionFunc);
 
@@ -76,6 +110,9 @@ void* ffx_sceneNode_createAction(FfxNode node, size_t stateSize,
 //////////////////////////////
 // Debugging
 
+/**
+ *  Dumps the scene to the terminal.
+ */
 void ffx_scene_dumpScene(FfxScene scene);
 
 
@@ -89,9 +126,11 @@ typedef struct FfxClip {
 } FfxClip;
 
 /**
- *  Compute the clipped region of %%obj*%% within the viewport %%vp*%%.
+ *  Compute the clipped region %%origin%% and %%size%% within the
+ *  viewport bounds %%vpOrigin*%% and %%vpSize%%.
  *
- *  If the object is entirely outside the viewport, the result width is 0.
+ *  If the object is entirely outside the viewport, the result width
+ *  is 0.
  */
 FfxClip ffx_scene_clip(FfxPoint origin, FfxSize size, FfxPoint vpOrigin,
   FfxSize vpSize);
