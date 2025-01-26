@@ -159,12 +159,12 @@ static void updateAnimations(Scene *scene) {
         Action *action = animation->actions;
         while (action) {
             Action *nextAction = action->nextAction;
-            scene->freeFunc((void*)action, scene->allocArg);
+            ffx_scene_memFree(scene, action);
             action = nextAction;
         }
 
         // Free the animation
-        scene->freeFunc((void*)animation, scene->allocArg);
+        ffx_scene_memFree(scene, animation);
 
         animation = nextAnimation;
     }
@@ -181,7 +181,7 @@ void ffx_scene_sequence(FfxScene _scene) {
         while (render) {
             void *lastRender = render;
             render = render->nextRender;
-            scene->freeFunc(lastRender, scene->allocArg);
+            ffx_scene_memFree(scene, lastRender);
         }
     }
 
@@ -203,9 +203,7 @@ void* ffx_scene_createRender(FfxNode _node, size_t stateSize) {
     Node *node = _node;
     Scene *scene = node->scene;
 
-    size_t size = sizeof(Render) + stateSize;
-    Render *render = (void*)scene->allocFunc(size, scene->allocArg);
-    memset(render, 0, size);
+    Render *render = ffx_sceneNode_memAlloc(_node, sizeof(Render) + stateSize);
 
     if (scene->renderHead == NULL) {
         scene->renderHead = scene->renderTail = render;

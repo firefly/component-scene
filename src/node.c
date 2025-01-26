@@ -8,14 +8,10 @@
 //////////////////////////
 // Life-cycle
 
-FfxNode ffx_scene_createNode(FfxScene _scene, const FfxNodeVTable *vtable,
+FfxNode ffx_scene_createNode(FfxScene scene, const FfxNodeVTable *vtable,
   size_t stateSize) {
-    Scene *scene = _scene;
 
-    size_t size = sizeof(Node) + stateSize;
-
-    Node *node = (void*)scene->allocFunc(size, scene->allocArg);
-    memset(node, 0, size);
+    Node *node = ffx_scene_memAlloc(scene, sizeof(Node) + stateSize);
 
     node->vtable = vtable;
     node->scene = scene;
@@ -29,12 +25,14 @@ void* ffx_sceneNode_getState(FfxNode _node) {
 }
 
 void ffx_sceneNode_free(FfxNode _node) {
+
     Node *node = _node;
 
-    node->vtable->destroyFunc(_node);
+    node->vtable->destroyFunc(node);
 
-    Scene *scene = node->scene;
-    scene->freeFunc((void*)node, scene->allocArg);
+    // @TODO: clear out any animations (may need a special stop value)
+
+    ffx_sceneNode_memFree(node, node);
 }
 
 void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
@@ -158,10 +156,7 @@ void* ffx_sceneNode_createAction(FfxNode _node, size_t stateSize,
     Node *node = _node;
     Scene *scene = node->scene;
 
-    size_t size = sizeof(Action) + stateSize;
-
-    Action *action = (void*)scene->allocFunc(size, scene->allocArg);
-    memset(action, 0, size);
+    Action *action = ffx_sceneNode_memAlloc(node, sizeof(Action) + stateSize);
 
     action->actionFunc = actionFunc;
 
@@ -183,9 +178,7 @@ void ffx_sceneNode_animate(FfxNode _node,
     Node *node = _node;
     Scene *scene = node->scene;
 
-    Animation *animation = (void*)scene->allocFunc(sizeof(Animation),
-      scene->allocArg);
-    memset(animation, 0, sizeof(Animation));
+    Animation *animation = ffx_sceneNode_memAlloc(_node, sizeof(Animation));
 
     animation->node = node;
     animation->startTime = scene->tick;
