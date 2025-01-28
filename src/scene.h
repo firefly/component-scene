@@ -5,6 +5,9 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include "firefly-scene-private.h"
 
 
@@ -27,7 +30,7 @@ typedef enum NodeFlag {
 
     // Node is in an animations block; changes should be queued as
     // an animation target
-    NodeFlagCapturing       = (1 << 8),
+//    NodeFlagCapturing       = (1 << 8),
 
 } NodeFlag;
 
@@ -39,20 +42,18 @@ void ffx_sceneNode_clearFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
 void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
-
 typedef struct Action {
     struct Action *nextAction;
     FfxNodeActionFunc actionFunc;
     // Action State here
 } Action;
 
-
 typedef struct Animation {
     struct Animation *nextAnimation;
     Action *actions;
     struct Node *node;
     uint32_t startTime;
-    FfxSceneActionStop stop;
+    uint32_t stop;
     FfxNodeAnimation info;
 } Animation;
 
@@ -66,10 +67,15 @@ typedef struct Render {
 
 typedef struct Node {
     const FfxNodeVTable* vtable;
+
     struct Scene *scene;
     FfxPoint position;
     uint32_t flags;
     FfxNode nextSibling;
+
+    // The current animation being populated with actions
+    Animation *pendingAnimation;
+
     // Node State here
 } Node;
 
@@ -84,17 +90,34 @@ typedef struct Scene {
     Node *root;
 
     // Gloabl tick
+    // Guarded by animationLock ??
     int32_t tick;
 
     // The head and tail of the current render list (may be null)
+    // Guarded by renderLock
     Render *renderHead;
     Render *renderTail;
 
     // The head and tail of the animation list (may be null)
+    // Guarded by animationLock
     Animation *animationHead;
     Animation *animationTail;
 
+    StaticSemaphore_t animLockData;
+    SemaphoreHandle_t animLock;
+
+    StaticSemaphore_t renderLockData;
+    SemaphoreHandle_t renderLock;
+
 } Scene;
+
+
+void renderLock(Scene *scene);
+void renderUnlock(Scene *scene);
+
+void animationLock(Scene *scene);
+void animationUnlock(Scene *scene);
+
 
 
 

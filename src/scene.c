@@ -9,12 +9,35 @@
 
 
 //////////////////////////
+// Mutex
+
+void renderLock(Scene *scene) {
+    xSemaphoreTake(scene->renderLock, portMAX_DELAY);
+}
+
+void renderUnlock(Scene *scene) {
+    xSemaphoreGive(scene->renderLock);
+}
+
+void animationLock(Scene *scene) {
+    xSemaphoreTake(scene->animLock, portMAX_DELAY);
+}
+
+void animationUnlock(Scene *scene) {
+    xSemaphoreGive(scene->animLock);
+}
+
+
+//////////////////////////
 // Memory
 
 void* ffx_scene_memAlloc(FfxScene _scene, size_t size) {
     Scene *scene = _scene;
 
     void *ptr = scene->allocFunc(size, scene->allocArg);
+    if (ptr == NULL) {
+        printf("FAIL: could not allocate %d bytes\n", size);
+    }
     memset(ptr, 0, size);
 
     return ptr;
@@ -58,6 +81,9 @@ FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
         return NULL;
     }
 
+    scene->animLock = xSemaphoreCreateMutexStatic(&scene->animLockData);
+    scene->renderLock = xSemaphoreCreateMutexStatic(&scene->renderLockData);
+
     return scene;
 }
 
@@ -69,6 +95,10 @@ void ffx_scene_free(FfxScene _scene) {
     scene->freeFunc((void*)scene, scene->allocArg);
 }
 
+
+//////////////////////////
+// Properties
+
 FfxNode ffx_scene_root(FfxScene _scene) {
     Scene *scene = _scene;
     return scene->root;
@@ -79,20 +109,32 @@ FfxNode ffx_scene_root(FfxScene _scene) {
 // Sequencing
 
 static void updateAnimations(Scene *scene) {
-    uint32_t now = scene->tick;
 
     // The list of completed animations; removed from the list by not freed
-    Animation *complete = NULL;
+    Animation *completeHead = NULL;
+    Animation *completeTail = NULL;
 
     Animation *prevAnimation = NULL;
+
+    // <Critical Section>
+    animationLock(scene);
+
+    uint32_t now = scene->tick;
+
     Animation *animation = scene->animationHead;
     while (animation) {
+
         Animation *nextAnimation = animation->nextAnimation;
 
         FfxSceneActionStop stop = animation->stop;
 
         bool done = true;
-        if (!stop && now <= animation->startTime + animation->info.delay) {
+
+        if (animation->node == NULL) {
+            // Node was removed
+
+        } else if (!stop && now <= animation->startTime + animation->info.delay) {
+            // Still running, but is in the delay
             done = false;
 
         } else if (animation->actions && stop != FfxSceneActionStopCurrent) {
@@ -115,6 +157,7 @@ static void updateAnimations(Scene *scene) {
 
             Action *action = animation->actions;
             while (action) {
+                //printf("action: %p\n", action);
                 action->actionFunc(animation->node, t, &action[1]);
                 action = action->nextAction;
             }
@@ -127,8 +170,14 @@ static void updateAnimations(Scene *scene) {
                 prevAnimation->nextAnimation = nextAnimation;
             }
 
-            animation->nextAnimation = complete;
-            complete = animation;
+            animation->nextAnimation = NULL;
+
+            if (completeHead == NULL) {
+                completeHead = completeTail = animation;
+            } else {
+                completeTail->nextAnimation = animation;
+                completeTail = animation;
+            }
 
         } else {
             prevAnimation = animation;
@@ -138,12 +187,14 @@ static void updateAnimations(Scene *scene) {
     }
 
     // No animations remain
-    if (prevAnimation == NULL) {
-        scene->animationHead = scene->animationTail = NULL;
-    }
+    if (prevAnimation == NULL) { scene->animationHead = NULL; }
+    scene->animationTail = prevAnimation;
+
+    animationUnlock(scene);
+    // </Critical Section>
 
     // Clean up complete animations
-    animation = complete;
+    animation = completeHead;
     while (animation) {
         Animation *nextAnimation = animation->nextAnimation;
 
@@ -173,25 +224,31 @@ static void updateAnimations(Scene *scene) {
 void ffx_scene_sequence(FfxScene _scene) {
     Scene *scene = _scene;
 
+    // Update all animations
+    updateAnimations(scene);
+
+    // <Critical Section>
+    renderLock(scene);
+
     // Delete the last render data
     if (scene->renderHead) {
         Render *render = scene->renderHead;
         scene->renderHead = scene->renderTail = NULL;
 
         while (render) {
-            void *lastRender = render;
-            render = render->nextRender;
-            ffx_scene_memFree(scene, lastRender);
+            Render *nextRender = render->nextRender;
+            ffx_scene_memFree(scene, render);
+            render = nextRender;
         }
     }
 
     scene->tick = xTaskGetTickCount();
 
-    // Update all animations
-    updateAnimations(scene);
-
     // Sequence all the nodes
-    ffx_sceneNode_sequence(scene->root, (FfxPoint){ .x = 0, .y = 0 });
+    ffx_sceneNode_sequence(scene->root, ffx_point(0, 0));
+
+    renderUnlock(scene);
+    // </Critical Section>
 }
 
 
@@ -223,11 +280,15 @@ void ffx_scene_render(FfxScene _scene, uint16_t *fragment, FfxPoint origin,
 
     Scene *scene = _scene;
 
+    renderLock(scene);
+
     Render *render = scene->renderHead;
     while (render) {
         render->renderFunc(&render[1], fragment, origin, size);
         render = render->nextRender;
     }
+
+    renderUnlock(scene);
 }
 
 

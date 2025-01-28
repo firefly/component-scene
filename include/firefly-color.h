@@ -180,8 +180,6 @@ FfxColorHSV ffx_color_parseHSV(color_ffxt color);
 
 uint8_t ffx_color_getOpacity(color_ffxt color);
 
-bool ffx_color_isTransparent(color_ffxt color);
-
 
 ///////////////////////////////
 // Interpolation

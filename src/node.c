@@ -4,6 +4,21 @@
 
 #include "scene.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <esp_debug_helpers.h>
+
+FfxNode assertNode(FfxNode node) {
+    if (node == NULL) {
+        printf("Error: node cannot be NULL\n");
+        esp_backtrace_print(32);
+
+        printf("HAULT.\n");
+        while(1) { vTaskDelay(10000); }
+    }
+
+    return node;
+}
 
 //////////////////////////
 // Life-cycle
@@ -28,15 +43,42 @@ void ffx_sceneNode_free(FfxNode _node) {
 
     Node *node = _node;
 
-    node->vtable->destroyFunc(node);
+    // <Critical Section>
+    animationLock(node->scene);
 
-    // @TODO: clear out any animations (may need a special stop value)
+    // Clear all animations on this node; no onComplete is called
+    Animation *animation = node->scene->animationHead;
+    while (animation) {
+        if (animation->node == node) { animation->node = NULL; }
+        animation = animation->nextAnimation;
+    }
+
+    animationUnlock(node->scene);
+    // <//Critical Section>
+
+    node->vtable->destroyFunc(node);
 
     ffx_sceneNode_memFree(node, node);
 }
 
 void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
-    Node *node = _node;
+    Node *node = assertNode(_node);
+
+    // <Critical Section>
+    animationLock(node->scene);
+
+    // @TODO: maybe this doesn't need to be done?
+    //        in updateAnimations detect a removed node
+
+    // Clear all animations on this node; no onComplete is called
+    Animation *animation = node->scene->animationHead;
+    while (animation) {
+        if (animation->node == node) { animation->node = NULL; }
+        animation = animation->nextAnimation;
+    }
+
+    animationUnlock(node->scene);
+    // </Critical Section>
 
     if (dealloc) {
         node->flags |= NodeFlagRemove | NodeFlagFree;
@@ -113,6 +155,44 @@ void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
         .x = node->position.x + offset.x,
         .y = node->position.y + offset.y,
     });
+}
+
+typedef struct AnimatePositionState {
+    FfxPoint position;
+
+    uint32_t delay;
+    uint32_t duration;
+    FfxCurveFunc curve;
+    FfxNodeAnimationCompleteFunc onComplete;
+    void* arg;
+} AnimatePositionState;
+
+static void animatePositionSetup(FfxNode node, FfxNodeAnimation *animation,
+  void *arg) {
+
+    AnimatePositionState *state = arg;
+    animation->delay = state->delay;
+    animation->duration = state->duration;
+    animation->curve = state->curve;
+    animation->onComplete = state->onComplete;
+    animation->arg = state->arg;
+
+    ffx_sceneNode_setPosition(node, state->position);
+}
+
+void ffx_sceneNode_animatePosition(FfxNode node, FfxPoint position,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompleteFunc onComplete, void* arg) {
+
+    AnimatePositionState state = { 0 };
+    state.position = position;
+    state.delay = delay;
+    state.duration = duration;
+    state.curve = curve;
+    state.onComplete = onComplete;
+    state.arg = arg;
+
+    ffx_sceneNode_animate(node, animatePositionSetup, &state);
 }
 
 
@@ -224,28 +304,28 @@ bool ffx_sceneNode_createPointAction(FfxNode node, FfxPoint v0, FfxPoint v1,
 //////////////////////////
 // Animation
 
-bool ffx_sceneNode_isCapturing(FfxNode node) {
-    return ffx_sceneNode_hasFlags(node, NodeFlagCapturing);
+bool ffx_sceneNode_isCapturing(FfxNode _node) {
+    Node *node = _node;
+    return node->pendingAnimation != NULL;
 }
 
 void* ffx_sceneNode_createAction(FfxNode _node, size_t stateSize,
   FfxNodeActionFunc actionFunc) {
 
-    if (!ffx_sceneNode_hasFlags(_node, NodeFlagCapturing)) {
+    Node *node = _node;
+
+    if (node->pendingAnimation == NULL) {
         printf("cannot add animations; not capturing\n");
         return NULL;
     }
-
-    Node *node = _node;
-    Scene *scene = node->scene;
 
     Action *action = ffx_sceneNode_memAlloc(node, sizeof(Action) + stateSize);
 
     action->actionFunc = actionFunc;
 
-    // Add the action to the head of the list of actions on the current animation
-    action->nextAction = scene->animationTail->actions;
-    scene->animationTail->actions = action;
+    // Prepend the action to the list of actions on the pending animation
+    action->nextAction = node->pendingAnimation->actions;
+    node->pendingAnimation->actions = action;
 
     return &action[1];
 }
@@ -253,44 +333,67 @@ void* ffx_sceneNode_createAction(FfxNode _node, size_t stateSize,
 void ffx_sceneNode_animate(FfxNode _node,
   FfxNodeAnimationSetupFunc animationsFunc, void *arg) {
 
-    if (ffx_sceneNode_hasFlags(_node, NodeFlagCapturing)) {
+    Node *node = _node;
+
+    if (node->pendingAnimation != NULL) {
         printf("already capturing animation\n");
         return;
     }
 
-    Node *node = _node;
-    Scene *scene = node->scene;
-
     Animation *animation = ffx_sceneNode_memAlloc(_node, sizeof(Animation));
 
     animation->node = node;
-    animation->startTime = scene->tick;
     animation->info.curve = FfxCurveLinear;
 
-    // Add the new animation to the animation list
-    if (scene->animationHead == NULL) {
-        scene->animationHead = scene->animationTail = animation;
-    } else {
-        scene->animationTail->nextAnimation = animation;
-        scene->animationTail = animation;
+    node->pendingAnimation = animation;
+
+    // Setup the animation
+    animationsFunc(_node, &(animation->info), arg);
+
+    // <Cretical Section>
+    animationLock(node->scene);
+
+    // Set the time
+    {
+        Scene *scene = node->scene;
+
+        animation->startTime = scene->tick;
+
+        // Add the new animation to the animation list
+        if (scene->animationHead == NULL) {
+            scene->animationHead = scene->animationTail = animation;
+        } else {
+            scene->animationTail->nextAnimation = animation;
+            scene->animationTail = animation;
+        }
     }
 
-    ffx_sceneNode_setFlags(_node, NodeFlagCapturing);
-    animationsFunc(_node, &animation->info, arg);
-    ffx_sceneNode_clearFlags(_node, NodeFlagCapturing);
+    animationUnlock(node->scene);
+    // </Cretical Section>
+
+    node->pendingAnimation = NULL;
 }
 
 void ffx_sceneNode_stopAnimations(FfxNode _node, bool completeAnimations) {
     Node *node = _node;
-    Scene *scene = node->scene;
 
     FfxSceneActionStop stop = FfxSceneActionStopCurrent;
     if (completeAnimations) { stop = FfxSceneActionStopFinal; }
 
-    Animation *animation = scene->animationHead;
+    // <Critical Section>
+    animationLock(node->scene);
+
+    // @TODO: maybe this can be done with flags?
+    // Note: nope, in case removed and re-added? Maybe drop support?
+
+    Animation *animation = node->scene->animationHead;
     while (animation) {
         if (animation->node == _node && !animation->stop) {
             animation->stop = stop;
         }
+        animation = animation->nextAnimation;
     }
+
+    animationUnlock(node->scene);
+    // </Critical Section>
 }
