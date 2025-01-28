@@ -1,5 +1,13 @@
 #include "firefly-scene-private.h"
 
+FfxPoint ffx_point(int16_t x, int16_t y) {
+    return (FfxPoint){ .x = x, .y = y };
+}
+
+FfxSize ffx_size(int16_t width, int16_t height) {
+    return (FfxSize){ .width = width, .height = height };
+}
+
 FfxClip ffx_scene_clip(FfxPoint origin, FfxSize size, FfxPoint vpOrigin,
   FfxSize vpSize) {
 
