@@ -182,7 +182,7 @@ static void destroyFunc(FfxNode node) {
 }
 
 static const FfxTextAlign MASK_VERTICAL = FfxTextAlignMiddle |
-  FfxTextAlignBottom | FfxTextAlignMiddleBase | FfxTextAlignBaseline |
+  FfxTextAlignBottom | FfxTextAlignMiddleBaseline | FfxTextAlignBaseline |
   FfxTextAlignTop;
 static const FfxTextAlign MASK_HORIZONTAL = FfxTextAlignCenter |
   FfxTextAlignRight | FfxTextAlignLeft;
@@ -210,7 +210,7 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
         case FfxTextAlignBottom:
             pos.y -= metrics.size.height;
             break;
-        case FfxTextAlignMiddleBase:
+        case FfxTextAlignMiddleBaseline:
             pos.y -= (metrics.size.height / 2) - metrics.descent;
             break;
         case FfxTextAlignBaseline:

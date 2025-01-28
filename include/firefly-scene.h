@@ -53,15 +53,15 @@ typedef enum FfxFont {
 } FfxFont;
 
 typedef enum FfxTextAlign {
-    FfxTextAlignTop          = (1 << 0), // y at top of bound
-    FfxTextAlignMiddle       = (1 << 1), // y at middle of bounds
-    FfxTextAlignBottom       = (1 << 2), // y at bottom of bounds
-    FfxTextAlignMiddleBase   = (1 << 3), // y at middle less baseline
-    FfxTextAlignBaseline     = (1 << 4), // y at bottom less baseline
+    FfxTextAlignTop              = (1 << 0), // y at top of bound
+    FfxTextAlignMiddle           = (1 << 1), // y at middle of bounds
+    FfxTextAlignBottom           = (1 << 2), // y at bottom of bounds
+    FfxTextAlignMiddleBaseline   = (1 << 3), // y at middle less baseline
+    FfxTextAlignBaseline         = (1 << 4), // y at bottom less baseline
 
-    FfxTextAlignLeft         = (1 << 5),  // x at left
-    FfxTextAlignCenter       = (1 << 6),  // x at center
-    FfxTextAlignRight        = (1 << 7),  // x at right
+    FfxTextAlignLeft             = (1 << 5),  // x at left
+    FfxTextAlignCenter           = (1 << 6),  // x at center
+    FfxTextAlignRight            = (1 << 7),  // x at right
 } FfxTextAlign;
 
 typedef struct FfxFontMetrics {
@@ -106,12 +106,18 @@ typedef void (*FfxSceneAnimationCompletion)(FfxNode node,
   FfxSceneActionStop stopType, void *arg);
 
 
-typedef uint8_t* (*FfxSceneAllocFunc)(size_t length, void *arg);
-typedef void (*FfxSceneFreeFunc)(uint8_t* pointer, void* arg);
-
 
 ///////////////////////////////
 // Scene
+
+typedef uint8_t* (*FfxSceneAllocFunc)(size_t length, void *arg);
+
+typedef void (*FfxSceneFreeFunc)(uint8_t* pointer, void* arg);
+
+typedef void (*FfxSceneDispatchAnimationCallback)(
+  FfxSceneAnimationCompletion callFunc, void* initArg, FfxNode node,
+  FfxSceneActionStop stopType, void *arg);
+
 
 // Allocate a new Scene
 FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
