@@ -25,6 +25,7 @@ typedef struct FfxPoint {
     int16_t y;
 } FfxPoint;
 
+
 //extern const FfxPoint PointZero;
 
 // Size
@@ -32,6 +33,7 @@ typedef struct FfxSize {
     uint16_t width;
     uint16_t height;
 } FfxSize;
+
 
 //extern const FfxSize SizeZero;
 
@@ -50,19 +52,45 @@ typedef enum FfxFont {
     FfxFontBoldMask    = 0x80
 } FfxFont;
 
+typedef enum FfxTextAlign {
+    FfxTextAlignTop          = (1 << 0), // y at top of bound
+    FfxTextAlignMiddle       = (1 << 1), // y at middle of bounds
+    FfxTextAlignBottom       = (1 << 2), // y at bottom of bounds
+    FfxTextAlignMiddleBase   = (1 << 3), // y at middle less baseline
+    FfxTextAlignBaseline     = (1 << 4), // y at bottom less baseline
+
+    FfxTextAlignLeft         = (1 << 5),  // x at left
+    FfxTextAlignCenter       = (1 << 6),  // x at center
+    FfxTextAlignRight        = (1 << 7),  // x at right
+} FfxTextAlign;
+
 typedef struct FfxFontMetrics {
-    FfxSize dimensions;
+    FfxSize size;
     int8_t descent;
     uint8_t outlineWidth;
     uint8_t points;
     bool isBold;
 } FfxFontMetrics;
 
+
+///////////////////////////////
+// Static Methods @TODO: change names?
+
+// ffx_fontMetrics?
 FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font);
+
+// ffx_imageSize?
+FfxSize ffx_sceneImage_getImageSize(const uint16_t *data, size_t length);
+
+FfxPoint ffx_point(int16_t x, int16_t y);
+
+FfxSize ffx_size(int16_t width, int16_t height);
+
 
 ///////////////////////////////
 // Animation
 
+// @TODO: rename this FfxNodeStopReason (add cancelled for removed actions?)
 typedef enum FfxSceneActionStop {
     // Indicates the animation ran to completion as normal
     FfxSceneActionStopNormal      = 0,
@@ -152,6 +180,10 @@ typedef void (*FfxNodeAnimationSetupFunc)(FfxNode node,
 void ffx_sceneNode_animate(FfxNode node, FfxNodeAnimationSetupFunc setupFunc,
   void *arg);
 
+void ffx_sceneNode_animatePosition(FfxNode node, FfxPoint position,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompleteFunc onComplete, void* arg);
+
 
 
 // Returns true if node is running any animations
@@ -192,6 +224,9 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text);
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length);
 void ffx_sceneLabel_setText(FfxNode node, const char* text);
 
+FfxTextAlign ffx_sceneLabel_getAlign(FfxNode node);
+void ffx_sceneLabel_setAlign(FfxNode node, FfxTextAlign align);
+
 FfxFont ffx_sceneLabel_getFont(FfxNode node);
 void ffx_sceneLabel_setFont(FfxNode node, FfxFont font);
 
@@ -201,7 +236,6 @@ void ffx_sceneLabel_setTextColor(FfxNode node, color_ffxt color);
 color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node);
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
 
-FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font);
 
 
 ///////////////////////////////
@@ -213,10 +247,8 @@ FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
 color_ffxt ffx_sceneImage_getTint(FfxNode node);
 void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
 
-uint8_t* ffx_sceneImage_getData(FfxNode node);
-void ffx_sceneImage_setData(FfxNode node, const char* data, size_t length);
-
-FfxSize ffx_sceneImage_getImageSize(const uint16_t *data, size_t length);
+const uint16_t* ffx_sceneImage_getData(FfxNode node);
+void ffx_sceneImage_setData(FfxNode node, const uint16_t* data, size_t length);
 
 
 #ifdef __cplusplus

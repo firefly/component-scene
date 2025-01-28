@@ -10,6 +10,7 @@
 
 typedef struct LabelNode {
     FfxFont font;
+    FfxTextAlign align;
     color_ffxt textColor;
     color_ffxt outlineColor;
     char *text;
@@ -22,6 +23,11 @@ typedef struct LabelRender {
     color_ffxt outlineColor;
     // Text goes here
 } LabelRender;
+
+
+
+#define SPACE_WIDTH       (2)
+#define OUTLINE_WIDTH     (4)
 
 
 //////////////////////////
@@ -81,7 +87,7 @@ FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
     const uint32_t header = fontInfo.font[0];
 
     return (FfxFontMetrics){
-        .dimensions = (FfxSize){
+        .size = (FfxSize){
             .width = (header >> 0) & 0xff,
             .height = (header >> 8) & 0xff
         },
@@ -94,35 +100,7 @@ FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
 
 
 //////////////////////////
-// Methods
-
-static void destroyFunc(FfxNode node) {
-    ffx_sceneLabel_setText(node, NULL);
-}
-
-static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    LabelNode *label = ffx_sceneNode_getState(node);
-
-    if (label->text == NULL) { return; }
-
-    size_t strLen = strlen(label->text);
-    if (strLen == 0) { return; }
-
-    // Include the null termination and round up to the nearest word
-    strLen = (strLen + 1 + 3) & 0xfffffc;
-
-    FfxPoint pos = ffx_sceneNode_getPosition(node);
-    pos.x += worldPos.x;
-    pos.y += worldPos.y;
-
-    LabelRender *render = ffx_scene_createRender(node, sizeof(LabelRender) + strLen);
-    render->font = label->font;
-    render->textColor = label->textColor;
-    render->outlineColor = label->outlineColor;
-    render->position = pos;
-
-    strcpy((char*)&render[1], label->text);
-}
+// Rasterizing
 
 static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
   int height, const uint32_t *data, color_ffxt _color) {
@@ -159,14 +137,11 @@ static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
     }
 }
 
-#define SPACE_WIDTH       (2)
-#define OUTLINE_WIDTH     (4)
-
 static void renderText(uint16_t *frameBuffer, const char *text,
   FfxPoint position, const uint32_t *font, int32_t strokeOffset,
   color_ffxt color) {
 
-    if (ffx_color_isTransparent(color)) { return; }
+    if (ffx_color_getOpacity(color) == 0) { return; }
 
     int32_t width = (font[0] >> 0) & 0xff;
 
@@ -197,6 +172,76 @@ static void renderText(uint16_t *frameBuffer, const char *text,
         x += width + SPACE_WIDTH;
     }
 }
+
+
+//////////////////////////
+// Methods
+
+static void destroyFunc(FfxNode node) {
+    ffx_sceneLabel_setText(node, NULL);
+}
+
+static const FfxTextAlign MASK_VERTICAL = FfxTextAlignMiddle |
+  FfxTextAlignBottom | FfxTextAlignMiddleBase | FfxTextAlignBaseline |
+  FfxTextAlignTop;
+static const FfxTextAlign MASK_HORIZONTAL = FfxTextAlignCenter |
+  FfxTextAlignRight | FfxTextAlignLeft;
+
+static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+
+    if (label->text == NULL) { return; }
+
+    size_t strLen = strlen(label->text);
+    if (strLen == 0) { return; }
+
+    // Include the null termination and round up to the nearest word
+
+    FfxPoint pos = ffx_sceneNode_getPosition(node);
+    pos.x += worldPos.x;
+    pos.y += worldPos.y;
+
+    // Handle vertical alignment
+    FfxFontMetrics metrics = ffx_sceneLabel_getFontMetrics(label->font);
+    switch (label->align & MASK_VERTICAL) {
+        case FfxTextAlignMiddle:
+            pos.y -= metrics.size.height / 2;
+            break;
+        case FfxTextAlignBottom:
+            pos.y -= metrics.size.height;
+            break;
+        case FfxTextAlignMiddleBase:
+            pos.y -= (metrics.size.height / 2) - metrics.descent;
+            break;
+        case FfxTextAlignBaseline:
+            pos.y -= metrics.size.height - metrics.descent;
+            break;
+
+        case FfxTextAlignTop: default:
+            break;
+    }
+
+    switch(label->align & MASK_HORIZONTAL){
+        case FfxTextAlignCenter:
+            pos.x -= ((metrics.size.width + SPACE_WIDTH) * strLen - 2) / 2;
+            break;
+        case FfxTextAlignRight:
+            pos.x -= ((metrics.size.width + SPACE_WIDTH) * strLen - 2);
+            break;
+        case FfxTextAlignLeft: default:
+            break;
+    }
+
+    LabelRender *render = ffx_scene_createRender(node, sizeof(LabelRender) +
+      ((strLen + 1 + 3) & 0xfffffc)); // @TODO: move this to alloc?
+    render->font = label->font;
+    render->textColor = label->textColor;
+    render->outlineColor = label->outlineColor;
+    render->position = pos;
+
+    strcpy((char*)&render[1], label->text);
+}
+
 
 static void renderFunc(void *_render, uint16_t *frameBuffer,
   FfxPoint origin, FfxSize size) {
@@ -316,6 +361,8 @@ void ffx_sceneLabel_setText(FfxNode node, const char* text) {
         label->text = NULL;
     }
 
+    if (text == NULL) { return; }
+
     size_t length = strlen(text);
     if (length) {
         label->text = ffx_sceneNode_memAlloc(node, length + 1);
@@ -323,6 +370,16 @@ void ffx_sceneLabel_setText(FfxNode node, const char* text) {
     } else {
         label->text = NULL;
     }
+}
+
+FfxTextAlign ffx_sceneLabel_getAlign(FfxNode node) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+    return label->align;
+}
+
+void ffx_sceneLabel_setAlign(FfxNode node, FfxTextAlign align) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+    label->align = align;
 }
 
 FfxFont ffx_sceneLabel_getFont(FfxNode node) {
