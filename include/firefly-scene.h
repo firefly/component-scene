@@ -216,6 +216,7 @@ void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
 uint8_t* ffx_sceneImage_getData(FfxNode node);
 void ffx_sceneImage_setData(FfxNode node, const char* data, size_t length);
 
+FfxSize ffx_sceneImage_getImageSize(const uint16_t *data, size_t length);
 
 
 #ifdef __cplusplus
