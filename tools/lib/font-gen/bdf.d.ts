@@ -11,11 +11,21 @@ export declare class Bitmap {
     #private;
     readonly width: number;
     readonly height: number;
-    constructor(data: Array<Array<0 | 1>>);
+    readonly padLeft: number;
+    readonly padTop: number;
+    constructor(data: Array<Array<0 | 1>>, padLeft: number, padTop: number);
     getBit(x: number, y: number): boolean;
-    forEach(callback: (x: number, y: number, bitmap: this) => void): void;
+    setBit(x: number, y: number, on: boolean): void;
+    forEach(callback: (x: number, y: number, isOn: boolean) => void, mask?: boolean): void;
     get data(): Array<Array<0 | 1>>;
-    trim(): Bitmap;
+    trimmed(): Bitmap;
+    expanded(count: number): Bitmap;
+    dump(): void;
+    clone(): Bitmap;
+    paste(bitmap: Bitmap, x: number, y: number, mask?: boolean): void;
+    outlined(radius: number): Bitmap;
+    static createDot(radius: number): Bitmap;
+    static create(width: number, height: number): Bitmap;
     static fromData(data: Record<string, string>, bounds?: Box): Bitmap;
 }
 export declare class Font {

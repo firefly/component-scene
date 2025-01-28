@@ -1,4 +1,4 @@
-import { Font } from "./bdf.js";
+import type { Font } from "./bdf.js";
 export declare function createFontPreview(font: Font, text: string, isDark: boolean): Promise<{
     bitmap: import("jimp").Bitmap;
     background: number;

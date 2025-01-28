@@ -36,8 +36,10 @@ function emptyScanline(width) {
     return result;
 }
 export class Bitmap {
-    constructor(data) {
+    constructor(data, padLeft, padTop) {
         _Bitmap_data.set(this, void 0);
+        this.padLeft = padLeft;
+        this.padTop = padTop;
         if (data.length === 0) {
             throw new Error("no data");
         }
@@ -61,11 +63,21 @@ export class Bitmap {
         }
         return !!value;
     }
-    forEach(callback) {
+    setBit(x, y, on) {
+        const value = __classPrivateFieldGet(this, _Bitmap_data, "f")[y][x];
+        if (value == null) {
+            throw new Error(`out of range: ${x}x${y}`);
+        }
+        __classPrivateFieldGet(this, _Bitmap_data, "f")[y][x] = on ? 1 : 0;
+    }
+    forEach(callback, mask) {
         __classPrivateFieldGet(this, _Bitmap_data, "f").forEach((row, y) => {
             row.forEach((bit, x) => {
-                if (bit) {
-                    callback(x, y, this);
+                if (mask) {
+                    callback(x, y, !!bit);
+                }
+                else if (bit) {
+                    callback(x, y, true);
                 }
             });
         });
@@ -73,14 +85,17 @@ export class Bitmap {
     get data() {
         return __classPrivateFieldGet(this, _Bitmap_data, "f").map((r) => r.slice());
     }
-    trim() {
-        let data = __classPrivateFieldGet(this, _Bitmap_data, "f").slice();
+    trimmed() {
+        let padLeft = this.padLeft;
+        let padTop = this.padTop;
+        let data = this.data;
         while (data.length) {
             const sum = data[0].reduce((a, v) => { return a + v; }, 0);
             if (sum) {
                 break;
             }
             data.shift();
+            padTop++;
         }
         while (data.length) {
             const sum = data[data.length - 1].reduce((a, v) => { return a + v; }, 0);
@@ -95,6 +110,7 @@ export class Bitmap {
                 break;
             }
             data.forEach((v) => { v.shift(); });
+            padLeft++;
         }
         while (data[0].length) {
             const sum = data.reduce((a, v) => { return a + v[v.length - 1]; }, 0);
@@ -103,7 +119,74 @@ export class Bitmap {
             }
             data.forEach((v) => { v.pop(); });
         }
-        return new Bitmap(data);
+        return new Bitmap(data, padLeft, padTop);
+    }
+    expanded(count) {
+        let data = this.data;
+        for (let y = 0; y < data.length; y++) {
+            for (let i = 0; i < count; i++) {
+                data[y].unshift(0);
+                data[y].push(0);
+            }
+        }
+        for (let i = 0; i < count; i++) {
+            data.unshift(emptyScanline(data[0].length));
+            data.push(emptyScanline(data[0].length));
+        }
+        return new Bitmap(data, this.padLeft - count, this.padTop - count);
+    }
+    dump() {
+        console.log({
+            width: this.width, height: this.height,
+            padLeft: this.padLeft, padTop: this.padTop
+        });
+        for (let y = 0; y < this.height; y++) {
+            console.log(__classPrivateFieldGet(this, _Bitmap_data, "f")[y].map((i) => (i ? "#" : " ")).join(" "));
+        }
+    }
+    clone() {
+        return new Bitmap(this.data, this.padLeft, this.padTop);
+    }
+    paste(bitmap, x, y, mask) {
+        x += bitmap.padLeft;
+        y += bitmap.padTop;
+        bitmap.forEach((bx, by, isOn) => {
+            this.setBit(bx + x, by + y, isOn);
+        }, mask);
+    }
+    outlined(radius) {
+        let result = this.expanded(radius);
+        const dot = Bitmap.createDot(radius);
+        this.forEach((x, y) => { result.paste(dot, x, y); });
+        // Clear all bits that the font would fill in
+        this.forEach((x, y) => result.setBit(x + radius, y + radius, false));
+        return result;
+    }
+    static createDot(radius) {
+        let size = (radius * 2) + 1;
+        const data = [];
+        for (let i = 0; i < size; i++) {
+            data.push(emptyScanline(size));
+        }
+        const dot = new Bitmap(data, 0, 0);
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const dx = (x - radius + (x <= radius ? 0.25 : -0.25));
+                const dy = (y - radius + (y <= radius ? 0.25 : -0.25));
+                const d = Math.sqrt(dx * dx + dy * dy);
+                if (d <= radius) {
+                    dot.setBit(x, y, true);
+                }
+            }
+        }
+        return dot;
+    }
+    static create(width, height) {
+        const data = [];
+        for (let i = 0; i < height; i++) {
+            data.push(emptyScanline(width));
+        }
+        return new Bitmap(data, 0, 0);
     }
     static fromData(data, bounds) {
         const bbx = Box.fromBbx(data.BBX);
@@ -141,7 +224,7 @@ export class Bitmap {
             }
             y++;
         }
-        return new Bitmap(bitmap);
+        return new Bitmap(bitmap, 0, 0);
     }
 }
 _Bitmap_data = new WeakMap();
@@ -211,4 +294,7 @@ export class Font {
     }
 }
 _Font_data = new WeakMap();
+//const dot = Bitmap.createDot(2);
+//console.log(dot);
+//dot.dump();
 //# sourceMappingURL=bdf.js.map
