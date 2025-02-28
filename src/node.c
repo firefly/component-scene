@@ -157,6 +157,8 @@ void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
     });
 }
 
+// Can this be migrated to use ffx_sceneNode_createPointAction?
+
 typedef struct AnimatePositionState {
     FfxPoint position;
 
@@ -229,6 +231,42 @@ bool ffx_sceneNode_createColorAction(FfxNode node, color_ffxt v0,
 }
 
 
+typedef struct PointState {
+    FfxPoint v0;
+    FfxPoint v1;
+    FfxNodeActionSetPointFunc setFunc;
+} PointState;
+
+static void animatePoint(FfxNode node, fixed_ffxt t, void *_state) {
+    PointState *state = _state;
+    FfxPoint v0 = state->v0;
+    FfxPoint v1 = state->v1;
+
+    state->setFunc(node, (FfxPoint){
+        .x = v0.x + scalarfx(v1.x - v0.x, t),
+        .y = v0.y + scalarfx(v1.y - v0.y, t)
+    });
+}
+
+bool ffx_sceneNode_createPointAction(FfxNode node, FfxPoint v0, FfxPoint v1,
+  FfxNodeActionSetPointFunc setFunc) {
+
+    if (!ffx_sceneNode_isCapturing(node)) {
+        setFunc(node, v1);
+        return false;
+    }
+
+    PointState *state = ffx_sceneNode_createAction(node, sizeof(PointState),
+      animatePoint);
+
+    state->v0 = v0;
+    state->v1 = v1;
+    state->setFunc = setFunc;
+
+    return true;
+}
+
+
 typedef struct SizeState {
     FfxSize v0;
     FfxSize v1;
@@ -264,41 +302,6 @@ bool ffx_sceneNode_createSizeAction(FfxNode node, FfxSize v0, FfxSize v1,
     return true;
 }
 
-
-typedef struct PointState {
-    FfxPoint v0;
-    FfxPoint v1;
-    FfxNodeActionSetPointFunc setFunc;
-} PointState;
-
-static void animatePoint(FfxNode node, fixed_ffxt t, void *_state) {
-    PointState *state = _state;
-    FfxPoint v0 = state->v0;
-    FfxPoint v1 = state->v1;
-
-    state->setFunc(node, (FfxPoint){
-        .x = v0.x + scalarfx(v1.x - v0.x, t),
-        .y = v0.y + scalarfx(v1.y - v0.y, t)
-    });
-}
-
-bool ffx_sceneNode_createPointAction(FfxNode node, FfxPoint v0, FfxPoint v1,
-  FfxNodeActionSetPointFunc setFunc) {
-
-    if (!ffx_sceneNode_isCapturing(node)) {
-        setFunc(node, v1);
-        return false;
-    }
-
-    PointState *state = ffx_sceneNode_createAction(node, sizeof(PointState),
-      animatePoint);
-
-    state->v0 = v0;
-    state->v1 = v1;
-    state->setFunc = setFunc;
-
-    return true;
-}
 
 
 //////////////////////////
@@ -372,6 +375,24 @@ void ffx_sceneNode_animate(FfxNode _node,
     // </Cretical Section>
 
     node->pendingAnimation = NULL;
+}
+
+void ffx_sceneNode_advanceAnimations(FfxNode _node, uint32_t advance) {
+    Node *node = _node;
+
+    // <Critical Section>
+    animationLock(node->scene);
+
+    Animation *animation = node->scene->animationHead;
+    while (animation) {
+        if (animation->node == _node && !animation->stop) {
+            animation->startTime -= advance;
+        }
+        animation = animation->nextAnimation;
+    }
+
+    animationUnlock(node->scene);
+    // </Critical Section>
 }
 
 void ffx_sceneNode_stopAnimations(FfxNode _node, bool completeAnimations) {

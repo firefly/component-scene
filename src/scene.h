@@ -52,7 +52,7 @@ typedef struct Animation {
     struct Animation *nextAnimation;
     Action *actions;
     struct Node *node;
-    uint32_t startTime;
+    int32_t startTime;
     uint32_t stop;
     FfxNodeAnimation info;
 } Animation;

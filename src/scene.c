@@ -119,7 +119,7 @@ static void updateAnimations(Scene *scene) {
     // <Critical Section>
     animationLock(scene);
 
-    uint32_t now = scene->tick;
+    int32_t now = scene->tick;
 
     Animation *animation = scene->animationHead;
     while (animation) {
@@ -130,17 +130,23 @@ static void updateAnimations(Scene *scene) {
 
         bool done = true;
 
+        // Make sure we cast this to a signed value or the below "common"
+        // type for the comparison will be unsigned. Since startTime can
+        // be negative in the case of advanceAnimatin, we need to do all
+        // maths in signed-land.
+        int32_t delay = animation->info.delay;
+
         if (animation->node == NULL) {
             // Node was removed
 
-        } else if (!stop && now <= animation->startTime + animation->info.delay) {
+        } else if (!stop && now <= animation->startTime + delay) {
             // Still running, but is in the delay
             done = false;
 
         } else if (animation->actions && stop != FfxSceneActionStopCurrent) {
             done = false;
 
-            uint32_t n = now - animation->info.delay;
+            int32_t n = now - animation->info.delay;
 
             int32_t duration = animation->info.duration;
             int32_t endTime = animation->startTime + duration;
