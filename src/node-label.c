@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -81,7 +82,7 @@ FontInfo getFontInfo(FfxFont font) {
     return result;
 }
 
-FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
+FfxFontMetrics ffx_scene_getFontMetrics(FfxFont font) {
     FontInfo fontInfo = getFontInfo(font);
 
     const uint32_t header = fontInfo.font[0];
@@ -102,17 +103,27 @@ FfxFontMetrics ffx_sceneLabel_getFontMetrics(FfxFont font) {
 //////////////////////////
 // Rasterizing
 
+// NOTE: Alpha blending outlineColor is not currently supported as it
+//       requires memory allocated for a composite layer.
+
 static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
   int height, const uint32_t *data, color_ffxt _color) {
 
     // Glyph is entirely outside the fragment; skip
-    if (ox < -width || ox > 240 || oy < -height || oy > 24) {
-        return;
-    }
-    // @TODO: add support for alpha blending colors. Note for outline
-    //        alpha additional composite memory is required.
+    if (ox < -width || ox > 240 || oy < -height || oy > 24) { return; }
 
-    uint16_t color = ffx_color_rgb16(_color);
+    // Get the alpha and alpha inverse (ufixed:1.16)
+    uint32_t fga = FIXED_BITS_5(ffx_color_getOpacity(_color));
+    uint32_t fga_1 = FM_1 - fga;
+
+    // Get the color, broken into its pre-multiplied components
+    uint16_t fg = ffx_color_rgb16(_color);
+    int fgpmR = fg >> 11;
+    fgpmR *= fga;
+    int fgpmG = (fg >> 5) & 0x3f;
+    fgpmG *= fga;
+    int fgpmB = fg & 0x1f;;
+    fgpmB *= fga;
 
     int x = 0, y = 0;
     // @TODO: Use pointer math instead of multiply
@@ -123,7 +134,27 @@ static void renderGlyph(uint16_t *frameBuffer, int ox, int oy, int width,
             int tx = ox + x, ty = oy + y;
             if (bitmap & (0x80000000 >> i)) {
                 if (tx >= 0 && tx < 240 && ty >= 0 && ty < 24) {
-                    frameBuffer[ty * 240 + tx] = color;
+
+                    if (fga >= FM_1) {
+                        // 100% opaque
+                        frameBuffer[ty * 240 + tx] = fg;
+
+                    } else {
+
+                        // Get the current color...
+                        uint16_t bg = frameBuffer[ty * 240 + tx];
+                        int bgR = bg >> 11;
+                        int bgG = (bg >> 5) & 0x3f;
+                        int bgB = bg & 0x1f;
+
+                        // Blend the values and convert from fixed-point
+                        int blendR = (fgpmR + (fga_1 * bgR)) >> 16;
+                        int blendG = (fgpmG + (fga_1 * bgG)) >> 16;
+                        int blendB = (fgpmB + (fga_1 * bgB)) >> 16;
+
+                        frameBuffer[ty * 240 + tx] = (blendR << 11) |
+                          (blendG << 5) | blendB;
+                    }
                 }
             }
 
@@ -202,7 +233,7 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     pos.y += worldPos.y;
 
     // Handle vertical alignment
-    FfxFontMetrics metrics = ffx_sceneLabel_getFontMetrics(label->font);
+    FfxFontMetrics metrics = ffx_scene_getFontMetrics(label->font);
     switch (label->align & MASK_VERTICAL) {
         case FfxTextAlignMiddle:
             pos.y -= metrics.size.height / 2;
@@ -255,7 +286,6 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     const uint32_t *font = fontInfo.font;
     const uint32_t *outlineFont = fontInfo.outlineFont;
 
-    //int32_t descent = (font[0] >> 16) & 0xff;
     int32_t height = (font[0] >> 8) & 0xff;
     int32_t width = (font[0] >> 0) & 0xff;
 
@@ -269,9 +299,6 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     }, origin, size);
 
     if (clip.width == 0) { return; }
-
-    //printf("TEXT CLIP: pos=%dx%d vp=%dx%d size=%dx%d\n", clip.x, clip.y,
-    //  clip.vpX, clip.vpY, clip.width, clip.height);
 
     FfxPoint position = {
         .x = render->position.x,
@@ -320,8 +347,8 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(LabelNode));
 
     LabelNode *label = ffx_sceneNode_getState(node);
-    label->textColor = ffx_color_rgb(255, 255, 255, 0x3c);
-    label->outlineColor = ffx_color_rgb(0, 0, 0, 0);
+    label->textColor = ffx_color_rgb(255, 255, 255);
+    label->outlineColor = ffx_color_rgba(0, 0, 0, 0);
     label->font = font;
 
     ffx_sceneLabel_setText(node, text);
@@ -332,6 +359,14 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
 
 //////////////////////////
 // Properties
+
+size_t ffx_sceneLabel_getTextLength(FfxNode node) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+
+    if (label->text == NULL) { return 0; }
+
+    return strlen(label->text);
+}
 
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
     LabelNode *label = ffx_sceneNode_getState(node);
@@ -372,6 +407,125 @@ void ffx_sceneLabel_setText(FfxNode node, const char* text) {
     }
 }
 
+void ffx_sceneLabel_setTextFormat(FfxNode node, const char* format, ...) {
+    char *str = NULL;
+
+    va_list args;
+    va_start(args, format);
+    int length = vasprintf(&str, format, args);
+    va_end(args);
+
+    if (length == -1 || str == NULL) {
+        printf("ERROR\n");
+        return;
+    }
+
+    ffx_sceneLabel_setText(node, str);
+
+    free(str);
+}
+
+void ffx_sceneLabel_appendText(FfxNode node, const char* text) {
+    size_t curLength = ffx_sceneLabel_getTextLength(node);
+    char curText[curLength + strlen(text) + 1];
+    ffx_sceneLabel_copyText(node, curText, curLength + 1);
+    strcpy((char*)&curText[curLength], text);
+    ffx_sceneLabel_setText(node, curText);
+}
+
+void ffx_sceneLabel_appendCharacter(FfxNode node, char chr) {
+    char text[] = { chr, '\0' };
+    ffx_sceneLabel_appendText(node, text);
+}
+
+void ffx_sceneLabel_appendFormat(FfxNode node, const char* format, ...) {
+    char *str = NULL;
+
+    va_list args;
+    va_start(args, format);
+    int length = vasprintf(&str, format, args);
+    va_end(args);
+
+    if (length == -1 || str == NULL) {
+        printf("ERROR\n");
+        return;
+    }
+
+    ffx_sceneLabel_appendText(node, str);
+
+    free(str);
+}
+
+void ffx_sceneLabel_insertText(FfxNode node, size_t offset, const char* text) {
+
+    size_t curLen = ffx_sceneLabel_getTextLength(node);
+    if (curLen >= offset) {
+        ffx_sceneLabel_appendText(node, text);
+        return;
+    }
+
+    size_t len = strlen(text);
+
+    char curText[curLen + len + 1];
+    ffx_sceneLabel_copyText(node, curText, curLen + 1);
+
+    // Make room for the inserted text
+    int i = curLen + len + 1;
+    while (i >= offset + len) { // ?? >? >=?
+        curText[i] = curText[i - len];
+        i--;
+    }
+
+    // Insert the text
+    for (int i = 0; i < len; i++) { curText[offset + i] = text[i]; }
+
+    ffx_sceneLabel_setText(node, text);
+}
+
+void ffx_sceneLabel_insertCharacter(FfxNode node, size_t offset, char chr) {
+    char text[] = { chr, '\0' };
+    ffx_sceneLabel_insertText(node, offset, text);
+}
+
+void ffx_sceneLabel_insertFormat(FfxNode node, size_t offset,
+  const char* format, ...) {
+
+    char *str = NULL;
+
+    va_list args;
+    va_start(args, format);
+    int length = vasprintf(&str, format, args);
+    va_end(args);
+
+    if (length == -1 || str == NULL) {
+        printf("ERROR\n");
+        return;
+    }
+
+    ffx_sceneLabel_insertText(node, offset, str);
+
+    free(str);
+}
+
+void ffx_sceneLabel_snipText(FfxNode node, size_t offset, size_t length) {
+    size_t curLen = ffx_sceneLabel_getTextLength(node);
+
+    if (offset > curLen) { offset = curLen; }
+    if (offset + length > curLen) { length = curLen - offset; }
+
+    if (length == 0) { return; }
+
+    // Get the current text
+    char curText[curLen + 1];
+    ffx_sceneLabel_copyText(node, curText, sizeof(curText));
+
+    for (int i = offset; i <= curLen - length; i++) {
+        curText[i] = curText[i + length];
+    }
+
+    ffx_sceneLabel_setText(node, curText);
+}
+
 FfxTextAlign ffx_sceneLabel_getAlign(FfxNode node) {
     LabelNode *label = ffx_sceneNode_getState(node);
     return label->align;
@@ -404,8 +558,43 @@ static void setTextColor(FfxNode node, color_ffxt color) {
 
 void ffx_sceneLabel_setTextColor(FfxNode node, color_ffxt color) {
     LabelNode *label = ffx_sceneNode_getState(node);
+    if (label->textColor == color) { return; }
     ffx_sceneNode_createColorAction(node, label->textColor, color,
       setTextColor);
+}
+
+void ffx_sceneLabel_setOpacity(FfxNode node, uint8_t opacity) {
+    LabelNode *label = ffx_sceneNode_getState(node);
+    ffx_sceneLabel_setTextColor(node, ffx_color_setOpacity(label->textColor,
+      opacity));
+}
+
+static void animateTextColor(FfxNode node, FfxNodeAnimation *animation,
+  void *arg) {
+    color_ffxt *color = arg;
+    ffx_sceneLabel_setTextColor(node, *color);
+}
+
+void ffx_sceneLabel_animateTextColor(FfxNode node, color_ffxt color,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg) {
+
+    LabelNode *label = ffx_sceneNode_getState(node);
+    if (label->textColor == color) { return; }
+
+    ffx_sceneNode_runAnimation(node, animateTextColor, &color, delay, duration,
+      curve, onComplete, arg);
+}
+
+void ffx_sceneLabel_animateOpacity(FfxNode node, uint8_t opacity,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg) {
+
+    LabelNode *label = ffx_sceneNode_getState(node);
+    color_ffxt color = ffx_color_setOpacity(label->textColor, opacity);
+
+    ffx_sceneLabel_animateTextColor(node, color, delay, duration, curve,
+      onComplete, arg);
 }
 
 color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node) {
@@ -420,6 +609,7 @@ static void setOutlineColor(FfxNode node, color_ffxt color) {
 
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color) {
     LabelNode *label = ffx_sceneNode_getState(node);
+    if (label->outlineColor == color) { return; }
     ffx_sceneNode_createColorAction(node, label->outlineColor, color,
       setOutlineColor);
 }
