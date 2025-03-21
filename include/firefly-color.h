@@ -69,9 +69,9 @@ typedef uint32_t color_ffxt;
 
 // Black with base-2 fraction opacities. These can be highly optimized
 // for alpha-blending using only bitwise operators.
-#define RGBA_DARKER75        (0x18000000)
+#define RGBA_DARKER25        (0x18000000)
 #define RGBA_DARKER50        (0x10000000)
-#define RGBA_DARKER25        (0x08000000)
+#define RGBA_DARKER75        (0x08000000)
 
 #define MAX_VAL              (0x3f)
 #define MAX_SAT              (0x3f)
@@ -91,14 +91,46 @@ typedef uint32_t color_ffxt;
 #define OPACITY_100          (32)
 
 
+#define COLOR_TRANSPARENT    (0x10000000)
+
+#define COLOR_BLACK          (0x00000000)
+#define COLOR_GRAY           (0x00888888)
+#define COLOR_WHITE          (0x00ffffff)
+
+#define COLOR_RED            (0x00ff0000)
+#define COLOR_BLUE           (0x0000ff00)
+#define COLOR_GREEN          (0x000000ff)
+
+
 ///////////////////////////////
 // Creating color
+
+/**
+ *  Convert a luminance level into gray with full opacity. All values
+ *  are clamped to their respective depths; see above.
+ */
+color_ffxt ffx_color_gray(uint8_t lum);
+
+/**
+ *  Convert an RGB tuple into a color with full opacity. All values
+ *  are clamped to their respective depths; see above.
+ */
+color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b);
 
 /**
  *  Convert an RGBA tuple into a color. All values are clamped to
  *  their respective depths; see above.
  */
-color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t opacity);
+color_ffxt ffx_color_rgba(int32_t r, int32_t g, int32_t b, int32_t opacity);
+
+/**
+ *  Convert an HSV tuple into a color with full opacity. All values
+ *  are clamped to their respective depths; see above.
+ *
+ *  If the hue is outside the range [0, 3959], it is moved to
+ *  an "earlier" rotation within the range.
+ */
+color_ffxt ffx_color_hsv(int32_t hue, int32_t sat, int32_t val);
 
 /**
  *  Convert an HSVA tuple into a color. All values are clamped to
@@ -107,7 +139,7 @@ color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t opacity);
  *  If the hue is outside the range [0, 3959], it is moved to
  *  an "earlier" rotation within the range.
  */
-color_ffxt ffx_color_hsv(int32_t hue, int32_t sat, int32_t val,
+color_ffxt ffx_color_hsva(int32_t hue, int32_t sat, int32_t val,
   int32_t opacity);
 
 
@@ -147,16 +179,24 @@ rgba24_ffxt ffx_color_rgba24(color_ffxt color);
 ///////////////////////////////
 // Inspection
 
-#define COLOR_NAME_LENGTH     (40)
+#define COLOR_STRING_LENGTH     (40)
 
 /**
- *  Describes %%color%% into %%name%% in upto %%length%% bytes.
+ *  Creates a string representation of %%color%% into %%output%%.
+ *  The %%output%% buffer must be at least [[COLOR_NAME_LENGTH]] bytes.
  *
- *  e.g.
- *    - "RGB(128/255, 0/255, 12/255, 16/32)"
- *    - "HSV(275, 63/63, 59/63, 16/32)"
+ *  @example:
+ *
+ *    char output[COLOR_STRING_LENGTH];
+ *    printf("Color: %s\n", ffx_color_sprintf(COLOR_RED, output));
+ *    // Color: RGB(255/255, 0/255, 0/255, 32/32)
+ *    color_ffxt color = ffx_color_hsva(275, MAX_SAT, MAX_VAL, OPACITY_50);
+ *    printf("Color: %s\n", ffx_color_sprintf(color, output));
+ *    // Color: HSV(275, 63/63, 63/63, 16/32)
+ *
+
  */
-size_t ffx_color_name(color_ffxt color, char *name, size_t length);
+char* ffx_color_sprintf(color_ffxt color, char *output);
 
 
 typedef struct FfxColorRGB {
@@ -180,6 +220,7 @@ FfxColorHSV ffx_color_parseHSV(color_ffxt color);
 
 uint8_t ffx_color_getOpacity(color_ffxt color);
 
+color_ffxt ffx_color_setOpacity(color_ffxt color, uint8_t opacity);
 
 ///////////////////////////////
 // Interpolation

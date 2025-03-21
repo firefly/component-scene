@@ -31,7 +31,7 @@ static uint32_t max(uint32_t a, uint32_t b) { return (a > b) ? a: b; }
 #define CLAMP(v,m)     (((v) <= (m)) ? (v): (m))
 
 
-color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t opacity) {
+color_ffxt ffx_color_rgba(int32_t r, int32_t g, int32_t b, int32_t opacity) {
     color_ffxt result = 0;
 
     result |= CLAMP(r, 0xff) << 16;
@@ -42,7 +42,11 @@ color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b, int32_t opacity) {
     return result;
 }
 
-color_ffxt ffx_color_hsv(int32_t h, int32_t s, int32_t v, int32_t opacity) {
+color_ffxt ffx_color_rgb(int32_t r, int32_t g, int32_t b) {
+    return ffx_color_rgba(r, g, b, MAX_OPACITY);
+}
+
+color_ffxt ffx_color_hsva(int32_t h, int32_t s, int32_t v, int32_t opacity) {
     color_ffxt result = COLOR_HSV;
 
     result |= (h % 3960) << 12;
@@ -53,6 +57,13 @@ color_ffxt ffx_color_hsv(int32_t h, int32_t s, int32_t v, int32_t opacity) {
     return result;
 }
 
+color_ffxt ffx_color_hsv(int32_t h, int32_t s, int32_t v) {
+    return ffx_color_hsva(h, s, v, MAX_OPACITY);
+}
+
+color_ffxt ffx_color_gray(uint8_t lum) {
+    return ffx_color_rgba(lum, lum, lum, MAX_OPACITY);
+}
 
 #define B6        (0x3f)
 #define B8        (0xff)
@@ -180,7 +191,7 @@ color_ffxt ffx_color_lerpfx(color_ffxt c0, color_ffxt c1, fixed_ffxt t) {
     int32_t s = lerp(_getS(c0), _getS(c1), t);
     int32_t v = lerp(_getV(c0), _getV(c1), t);
 
-    return ffx_color_hsv(h, s, v, a);
+    return ffx_color_hsva(h, s, v, a);
 }
 
 static int32_t lerpRatio(int32_t a, int32_t b, int32_t top, int32_t bottom) {
@@ -197,7 +208,7 @@ color_ffxt ffx_color_lerpRatio(color_ffxt c0, color_ffxt c1,
         int32_t s = lerpRatio(_getS(c0), _getS(c1), top, bottom);
         int32_t v = lerpRatio(_getV(c0), _getV(c1), top, bottom);
 
-        return ffx_color_hsv(h, s, v, a);
+        return ffx_color_hsva(h, s, v, a);
     }
 
     c0 = ffx_color_rgb24(c0);
@@ -207,7 +218,7 @@ color_ffxt ffx_color_lerpRatio(color_ffxt c0, color_ffxt c1,
     int32_t g = lerpRatio(_getG(c0), _getG(c1), top, bottom);
     int32_t b = lerpRatio(_getB(c0), _getB(c1), top, bottom);
 
-    return ffx_color_rgb(r, g, b, a);
+    return ffx_color_rgba(r, g, b, a);
 }
 
 color_ffxt ffx_color_lerpColorRamp(color_ffxt *colors, size_t count,
@@ -241,21 +252,25 @@ color_ffxt ffx_color_rgb2hsv(color_ffxt color) {
 
 color_ffxt ffx_color_hsv2rgb(color_ffxt color) {
     if (color & COLOR_HSV) { return _fromHSV(color); }
-    return color; 
+    return color;
 }
 
-size_t ffx_color_name(color_ffxt c, char *name, size_t length) {
+size_t ffx_color_sprintf(color_ffxt c, char *name) {
     uint32_t opacity = _getO(c);
 
-    if (opacity == 0) { return snprintf(name, length, "transparent"); }
-
-    if (c & COLOR_HSV) {
-        return snprintf(name, length, "HSV(%ld, %ld/63, %ld/63, %ld/32)",
-          _getH(c), _getS(c), _getV(c), opacity);
+    if (opacity == 0) {
+        return snprintf(name, COLOR_NAME_LENGTH, "transparent");
     }
 
-    return snprintf(name, length, "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)",
-      _getR(c), _getG(c), _getB(c), opacity);
+    if (c & COLOR_HSV) {
+        return snprintf(name, COLOR_NAME_LENGTH,
+          "HSV(%ld, %ld/63, %ld/63, %ld/32)", _getH(c), _getS(c), _getV(c),
+          opacity);
+    }
+
+    return snprintf(name, COLOR_NAME_LENGTH,
+      "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)", _getR(c), _getG(c),
+      _getB(c), opacity);
 }
 
 FfxColorHSV ffx_color_parseHSV(color_ffxt color) {
@@ -282,6 +297,11 @@ FfxColorRGB ffx_color_parseRGB(color_ffxt color) {
 
 uint8_t ffx_color_getOpacity(color_ffxt color) {
     return _getO(color);
+}
+
+color_ffxt ffx_color_setOpacity(color_ffxt color, uint8_t opacity) {
+    return (color & ~MASK_ALPHA) |
+      ((MAX_OPACITY - CLAMP(opacity, MAX_OPACITY)) << 24);
 }
 
 bool ffx_color_isTransparent(color_ffxt color) {
