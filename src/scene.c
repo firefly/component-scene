@@ -34,7 +34,7 @@ void animationUnlock(Scene *scene) {
 void* ffx_scene_memAlloc(FfxScene _scene, size_t size) {
     Scene *scene = _scene;
 
-    void *ptr = scene->allocFunc(size, scene->allocArg);
+    void *ptr = scene->allocFunc(size, scene->initArg);
     if (ptr == NULL) {
         printf("FAIL: could not allocate %d bytes\n", size);
     }
@@ -45,7 +45,7 @@ void* ffx_scene_memAlloc(FfxScene _scene, size_t size) {
 
 void ffx_scene_memFree(FfxScene _scene, void *ptr) {
     Scene *scene = _scene;
-    scene->freeFunc(ptr, scene->allocArg);
+    scene->freeFunc(ptr, scene->initArg);
 }
 
 void* ffx_sceneNode_memAlloc(FfxNode _node, size_t size) {
@@ -64,20 +64,23 @@ void ffx_sceneNode_memFree(FfxNode _node, void *ptr) {
 // Life-cycle
 
 FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
-  FfxSceneFreeFunc freeFunc, void *allocArg) {
+  FfxSceneFreeFunc freeFunc, FfxSceneAnimationSetupFunc setupFunc,
+  FfxSceneAnimationDispatchFunc dispatchFunc, void *initArg) {
 
-    Scene *scene = (void*)allocFunc(sizeof(Scene), allocArg);
+    Scene *scene = (void*)allocFunc(sizeof(Scene), initArg);
     if (scene == NULL) { return NULL; }
     memset(scene, 0, sizeof(Scene));
 
     scene->allocFunc = allocFunc;
     scene->freeFunc = freeFunc;
-    scene->allocArg = allocArg;
+    scene->setupFunc = setupFunc;
+    scene->dispatchFunc = dispatchFunc;
+    scene->initArg = initArg;
     scene->tick = xTaskGetTickCount();
     scene->root = ffx_scene_createGroup(scene);
 
     if (scene->root == NULL) {
-        freeFunc((void*)scene, allocArg);
+        freeFunc((void*)scene, initArg);
         return NULL;
     }
 
@@ -92,7 +95,7 @@ void ffx_scene_free(FfxScene _scene) {
 
     // @TODO: free all children!
 
-    scene->freeFunc((void*)scene, scene->allocArg);
+    scene->freeFunc((void*)scene, scene->initArg);
 }
 
 
@@ -208,8 +211,14 @@ static void updateAnimations(Scene *scene) {
 
         // Call any completion callback
         if (animation->info.onComplete) {
-            animation->info.onComplete(animation->node,
-              animation->info.arg, stop);
+            if (scene->dispatchFunc) {
+                scene->dispatchFunc(animation->dispatchArg,
+                  animation->info.onComplete, animation->node, stop,
+                  animation->info.arg, scene->initArg);
+            } else {
+                animation->info.onComplete(animation->node, stop,
+                  animation->info.arg);
+            }
         }
 
         // Remove the actions

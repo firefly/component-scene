@@ -165,7 +165,7 @@ typedef struct AnimatePositionState {
     uint32_t delay;
     uint32_t duration;
     FfxCurveFunc curve;
-    FfxNodeAnimationCompleteFunc onComplete;
+    FfxNodeAnimationCompletionFunc onComplete;
     void* arg;
 } AnimatePositionState;
 
@@ -184,7 +184,7 @@ static void animatePositionSetup(FfxNode node, FfxNodeAnimation *animation,
 
 void ffx_sceneNode_animatePosition(FfxNode node, FfxPoint position,
   uint32_t delay, uint32_t duration, FfxCurveFunc curve,
-  FfxNodeAnimationCompleteFunc onComplete, void* arg) {
+  FfxNodeAnimationCompletionFunc onComplete, void* arg) {
 
     AnimatePositionState state = { 0 };
     state.position = position;
@@ -200,6 +200,47 @@ void ffx_sceneNode_animatePosition(FfxNode node, FfxPoint position,
 
 //////////////////////////
 // Property Animators
+
+typedef struct Runner {
+    FfxNodeAnimationSetupFunc setupFunc;
+    void *arg;
+    FfxNodeAnimation animation;
+} Runner;
+
+static void setupAnimation(FfxNode node, FfxNodeAnimation *animation,
+  void *arg) {
+
+    Runner *runner = (Runner*)arg;
+    animation->delay = runner->animation.delay;
+    animation->duration = runner->animation.duration;
+    animation->curve = runner->animation.curve;
+    animation->onComplete = runner->animation.onComplete;
+    animation->arg = runner->animation.arg;
+
+    runner->setupFunc(node, animation, runner->arg);
+}
+
+void ffx_sceneNode_runAnimation(FfxNode node,
+  FfxNodeAnimationSetupFunc setupFunc, void *arg,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* completeArg) {
+
+    Runner runner = {
+        .setupFunc = setupFunc,
+        .arg = arg,
+        .animation = {
+            .delay = delay,
+            .duration = duration,
+            .curve = curve,
+            .onComplete = onComplete,
+            .arg = completeArg
+        }
+    };
+
+    ffx_sceneNode_animate(node, setupAnimation, &runner);
+}
+
+
 
 typedef struct ColorState {
     color_ffxt v0;
@@ -353,25 +394,28 @@ void ffx_sceneNode_animate(FfxNode _node,
     // Setup the animation
     animationsFunc(_node, &(animation->info), arg);
 
-    // <Cretical Section>
-    animationLock(node->scene);
+    Scene *scene = node->scene;
 
-    // Set the time
-    {
-        Scene *scene = node->scene;
-
-        animation->startTime = scene->tick;
-
-        // Add the new animation to the animation list
-        if (scene->animationHead == NULL) {
-            scene->animationHead = scene->animationTail = animation;
-        } else {
-            scene->animationTail->nextAnimation = animation;
-            scene->animationTail = animation;
-        }
+    if (scene->setupFunc) {
+         animation->dispatchArg = scene->setupFunc(_node, animation->info,
+           scene->initArg);
     }
 
-    animationUnlock(node->scene);
+    // <Cretical Section>
+    animationLock(scene);
+
+    // Set the time
+    animation->startTime = scene->tick;
+
+    // Add the new animation to the animation list
+    if (scene->animationHead == NULL) {
+        scene->animationHead = scene->animationTail = animation;
+    } else {
+        scene->animationTail->nextAnimation = animation;
+        scene->animationTail = animation;
+    }
+
+    animationUnlock(scene);
     // </Cretical Section>
 
     node->pendingAnimation = NULL;

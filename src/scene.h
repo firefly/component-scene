@@ -50,6 +50,7 @@ typedef struct Action {
 
 typedef struct Animation {
     struct Animation *nextAnimation;
+    void *dispatchArg;
     Action *actions;
     struct Node *node;
     int32_t startTime;
@@ -84,7 +85,9 @@ typedef struct Scene {
     // Memory allocation
     FfxSceneAllocFunc allocFunc;
     FfxSceneFreeFunc freeFunc;
-    void *allocArg;
+    FfxSceneAnimationSetupFunc setupFunc;
+    FfxSceneAnimationDispatchFunc dispatchFunc;
+    void *initArg;
 
     // The root (group) node
     Node *root;
