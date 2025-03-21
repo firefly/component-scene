@@ -195,14 +195,14 @@ void ffx_sceneBox_setColor(FfxNode node, color_ffxt color) {
     ffx_sceneNode_createColorAction(node, box->color, color, setColor);
 }
 
-static void setSize(FfxNode node, FfxSize size) {
-    BoxNode *box = ffx_sceneNode_getState(node);
-    box->size = size;
-}
-
 FfxSize ffx_sceneBox_getSize(FfxNode node) {
     BoxNode *box = ffx_sceneNode_getState(node);
     return box->size;
+}
+
+static void setSize(FfxNode node, FfxSize size) {
+    BoxNode *box = ffx_sceneNode_getState(node);
+    box->size = size;
 }
 
 void ffx_sceneBox_setSize(FfxNode node, FfxSize size) {

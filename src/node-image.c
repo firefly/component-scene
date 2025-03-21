@@ -202,7 +202,7 @@ static void dumpFunc(FfxNode node, int indent) {
 
     ImageNode *state = ffx_sceneNode_getState(node);
 
-    FfxSize size = ffx_sceneImage_getImageSize(state->data, 3);
+    FfxSize size = ffx_scene_getImageSize(state->data, 3);
 
     for (int i = 0; i < indent; i++) { printf("  "); }
     printf("<Image pos=%dx%d size=%dx%x image=%p>\n", pos.x, pos.y,
@@ -223,7 +223,7 @@ static const FfxNodeVTable vtable = {
 FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
   size_t dataLength) {
 
-    FfxSize size = ffx_sceneImage_getImageSize(data, dataLength);
+    FfxSize size = ffx_scene_getImageSize(data, dataLength);
     if (size.width == 0 || size.height == 0) { return NULL; }
 
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(ImageNode));
@@ -247,7 +247,7 @@ void ffx_sceneImage_setData(FfxNode node, const uint16_t *data,
   size_t length) {
     ImageNode *img = ffx_sceneNode_getState(node);
 
-    FfxSize size = ffx_sceneImage_getImageSize(data, length);
+    FfxSize size = ffx_scene_getImageSize(data, length);
     if (size.width) {
         img->data = data;
     }
@@ -272,7 +272,7 @@ void ffx_sceneImage_setTint(FfxNode node, color_ffxt tint) {
 //////////////////////////
 // Static Methods
 
-FfxSize ffx_sceneImage_getImageSize(const uint16_t *data, size_t length) {
+FfxSize ffx_scene_getImageSize(const uint16_t *data, size_t length) {
     FfxSize size;
     size.width = data[1];
     size.height = data[2];
