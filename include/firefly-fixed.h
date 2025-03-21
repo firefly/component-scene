@@ -6,7 +6,9 @@ extern "C" {
 #endif /* __cplusplus */
 
 
+#include <stddef.h>
 #include <stdint.h>
+
 
 /**
  *  A library for fixed:15.16 numeric operations.
@@ -48,6 +50,22 @@ extern const fixed_ffxt FM_MIN;    // Lowest possible negative value
  *  For example: tofx(1) == FM_1
  */
 fixed_ffxt tofx(int32_t value);
+
+
+// [ sign: 1 byte ][ 32767: 5 bytes ][ decimal: 1 byte ][ : 7 bytes][ NULL ]
+#define FIXED_STRING_LENGTH     (16)
+
+/**
+ *  Creates a string representation of %%value%% into %%output%%.
+ *  The %%output%% buffer must be at least [[FIXED_STRING_LENGTH]] bytes.
+ *
+ *  @example:
+ *
+ *    char output[COLOR_NAME_LENGTH];
+ *    printf("Value: %s\n", ffx_sprintfx(FM_PI, output));
+ *    // Value: 3.141601
+ */
+char* ffx_sprintfx(fixed_ffxt value, char *output);
 
 /**
  *  Returns a fixed:15.16 for top / bottom, preserving any possible

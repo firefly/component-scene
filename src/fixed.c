@@ -1,3 +1,4 @@
+
 #include "firefly-fixed.h"
 
 
@@ -18,6 +19,65 @@ const fixed_ffxt FM_1_8    =     0x2000;
 
 fixed_ffxt tofx(int32_t value) {
     return value << 16;
+}
+
+static void reverseBytes(char *output, size_t length) {
+    for (int i = 0; i < length / 2; i++) {
+        char tmp = output[i];
+        output[i] = output[length - i - 1];
+        output[length - i - 1] = tmp;
+    }
+}
+
+char* ffx_sprintfx(fixed_ffxt _value, char *output) {
+    size_t offset = 0;
+
+    uint32_t value = _value;
+    if (_value < 0) {
+        output[offset++] = '-';
+        value = (~_value) + 1;
+    }
+
+    int whole = value >> 16;
+    uint64_t frac = ((value & 0xffff) * (uint64_t)1000000) / (uint64_t)0x10000;
+
+    // Inject the whole component
+    if (whole == 0) {
+        output[offset++] = '0';
+    } else {
+        size_t start = offset;
+        while(whole) {
+            output[offset++] = 0x30 + (whole % 10);
+            whole /= 10;
+        }
+        reverseBytes(&output[start], offset - start);
+    }
+
+    // Inject the decimal point
+    output[offset++] = '.';
+
+    // Inject the fractional component
+    if (frac == 0) {
+        output[offset++] = '0';
+    } else {
+        size_t start = offset;
+        for (int i = 0; i < 6; i++) {
+            output[offset++] = 0x30 + (frac % 10);
+            frac /= 10;
+        }
+        reverseBytes(&output[start], offset - start);
+
+        // Inject a NULL termination early if applicable
+        for (int i = offset - 1; i > start; i++) {
+            if (output[i] != 0) { break; }
+            output[i] = 0;
+        }
+    }
+
+    // Inject a NULL termination
+    output[offset++] = 0;
+
+    return output;
 }
 
 fixed_ffxt ratiofx(int32_t top, int32_t bottom) {
@@ -147,3 +207,24 @@ fixed_ffxt sinfx(fixed_ffxt x) {
 fixed_ffxt cosfx(fixed_ffxt x) {
     return sinfx(x + FM_PI_2);
 }
+/*
+#include <stdio.h>
+
+int main() {
+    printf("TEST\n");
+    char output[FIXED_STRING_LENGTH];
+    fixed_ffxt v = 0x80000000;
+    printf("TEST: %x %s\n", v, ffx_sprintfx(v, output));
+    v = 0xffff0000;
+    printf("TEST: %x %s\n", v, ffx_sprintfx(v, output));
+    v = 0x10001;
+    printf("TEST: %x %s\n", v, ffx_sprintfx(v, output));
+    v = 100;
+    printf("TEST: %x %s\n", v, ffx_sprintfx(v, output));
+    v = 0x670000;
+    printf("TEST: %x %s\n", v, ffx_sprintfx(v, output));
+    printf("TEST: %x %s\n", FM_PI, ffx_sprintfx(FM_PI, output));
+    return 0;
+}
+
+*/
