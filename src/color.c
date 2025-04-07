@@ -255,22 +255,24 @@ color_ffxt ffx_color_hsv2rgb(color_ffxt color) {
     return color;
 }
 
-size_t ffx_color_sprintf(color_ffxt c, char *name) {
+char* ffx_color_sprintf(color_ffxt c, char *name) {
     uint32_t opacity = _getO(c);
 
     if (opacity == 0) {
-        return snprintf(name, COLOR_NAME_LENGTH, "transparent");
-    }
+        snprintf(name, COLOR_STRING_LENGTH, "transparent");
 
-    if (c & COLOR_HSV) {
-        return snprintf(name, COLOR_NAME_LENGTH,
+    } else if (c & COLOR_HSV) {
+        snprintf(name, COLOR_STRING_LENGTH,
           "HSV(%ld, %ld/63, %ld/63, %ld/32)", _getH(c), _getS(c), _getV(c),
           opacity);
+
+    } else {
+      snprintf(name, COLOR_STRING_LENGTH,
+        "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)", _getR(c), _getG(c),
+        _getB(c), opacity);
     }
 
-    return snprintf(name, COLOR_NAME_LENGTH,
-      "RGBA(%ld/255, %ld/255, %ld/255, %ld/32)", _getR(c), _getG(c),
-      _getB(c), opacity);
+    return name;
 }
 
 FfxColorHSV ffx_color_parseHSV(color_ffxt color) {
