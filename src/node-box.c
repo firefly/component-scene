@@ -148,12 +148,12 @@ static void dumpFunc(FfxNode node, int indent) {
 
     BoxNode *box = ffx_sceneNode_getState(node);
 
-    char colorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(box->color, colorName, sizeof(colorName));
+    char colorName[COLOR_STRING_LENGTH] = { 0 };
 
     for (int i = 0; i < indent; i++) { printf("  "); }
     printf("<Box pos=%dx%d size=%dx%d color=%s>\n", pos.x, pos.y,
-      box->size.width, box->size.height, colorName);
+      box->size.width, box->size.height,
+      ffx_color_sprintf(box->color, colorName));
 }
 
 static const FfxNodeVTable vtable = {

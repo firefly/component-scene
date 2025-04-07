@@ -316,12 +316,11 @@ static void dumpFunc(FfxNode node, int indent) {
 
     LabelNode *label = ffx_sceneNode_getState(node);
 
-    char textColorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(label->textColor, textColorName, sizeof(textColorName));
+    char textColorName[COLOR_STRING_LENGTH] = { 0 };
+    ffx_color_sprintf(label->textColor, textColorName);
 
-    char outlineColorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(label->outlineColor, outlineColorName,
-      sizeof(outlineColorName));
+    char outlineColorName[COLOR_STRING_LENGTH] = { 0 };
+    ffx_color_sprintf(label->outlineColor, outlineColorName);
 
     int fontSize = label->font & FfxFontSizeMask;
 

@@ -41,11 +41,10 @@ static void renderFunc(void *_render, uint16_t *_frameBuffer,
 static void dumpFunc(FfxNode node, int indent) {
     FillNode *fill = ffx_sceneNode_getState(node);
 
-    char colorName[COLOR_NAME_LENGTH] = { 0 };
-    ffx_color_name(fill->color, colorName, sizeof(colorName));
+    char colorName[COLOR_STRING_LENGTH] = { 0 };
 
     for (int i = 0; i < indent; i++) { printf("  "); }
-    printf("<Fill color=%s>\n", colorName);
+    printf("<Fill color=%s>\n", ffx_color_sprintf(fill->color, colorName));
 }
 
 static const FfxNodeVTable vtable = {
