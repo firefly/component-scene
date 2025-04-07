@@ -32,6 +32,7 @@ extern const fixed_ffxt FM_1;      // 1
 extern const fixed_ffxt FM_1_2;    // 1 / 2
 extern const fixed_ffxt FM_1_4;    // 1 / 4
 extern const fixed_ffxt FM_1_8;    // 1 / 8
+extern const fixed_ffxt FM_1_16;   // 1 / 16
 
 extern const fixed_ffxt FM_PI_2;   // pi / 2
 extern const fixed_ffxt FM_PI;     // pi
