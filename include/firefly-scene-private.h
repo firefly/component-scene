@@ -15,7 +15,8 @@ extern "C" {
 //////////////////////////////
 // Methods (via vtable)
 
-typedef void (*FfxNodeDestroyFunc)(FfxNode node);
+typedef bool (*FfxNodeWalkFunc)(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg);
 
 typedef void (*FfxNodeSequenceFunc)(FfxNode node, FfxPoint worldPos);
 
@@ -24,10 +25,11 @@ typedef void (*FfxNodeRenderFunc)(void *render, uint16_t *frameBuffer,
 
 typedef void (*FfxNodeDumpFunc)(FfxNode node, int indent);
 
+typedef void (*FfxNodeDestroyFunc)(FfxNode node);
+
 
 typedef struct FfxNodeVTable {
-    // Called when deallocating the Node
-    FfxNodeDestroyFunc destroyFunc;
+    FfxNodeWalkFunc walkFunc;
 
     // Called during sequencing and rendering
     FfxNodeSequenceFunc sequenceFunc;
@@ -35,8 +37,16 @@ typedef struct FfxNodeVTable {
 
     // Dumps the node details to the terminal
     FfxNodeDumpFunc dumpFunc;
+
+    // Called when deallocating the Node
+    FfxNodeDestroyFunc destroyFunc;
 } FfxNodeVTable;
 
+
+bool ffx_sceneNode_walk(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg);
+void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
+void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
 //////////////////////////////
 // Memory
@@ -61,12 +71,21 @@ FfxNode ffx_scene_createNode(FfxScene scene, const FfxNodeVTable *vtable,
   size_t stateSize);
 
 /**
+ *  Returns true if %%node%% has the given %%vtable%%.
+ *
+ *  This is a convenience method for implementing the ``scene_is*``
+ *  functions.
+ */
+bool ffx_scene_isNode(FfxNode node, const FfxNodeVTable *vtable);
+
+/**
  *  Gets a pointer to the state allocated in the createNode call.
  */
 void* ffx_sceneNode_getState(FfxNode node);
 
 /**
- *  Frees a Node.
+ *  Frees a Node. This should only be used internally when actually
+ *  freeing a node that was removed.
  */
 void ffx_sceneNode_free(FfxNode node);
 

@@ -22,6 +22,8 @@ typedef void* FfxScene;
  */
 typedef void* FfxNode;
 
+typedef int FfxNodeTag;
+
 /**
  *  Point object.
  */
@@ -83,6 +85,8 @@ typedef struct FfxFontMetrics {
     uint8_t points;
     bool isBold;
 } FfxFontMetrics;
+
+typedef bool (*FfxNodeVisitFunc)(FfxNode node, void* arg);
 
 
 ///////////////////////////////
@@ -181,6 +185,11 @@ FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
  */
 void ffx_scene_free(FfxScene scene);
 
+FfxNode ffx_scene_findTag(FfxScene scene, FfxNodeTag tag);
+
+bool ffx_scene_walk(FfxScene scene, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void *arg);
+
 /**
  *  Dump the scene graph to the console for debugging purposes.
  */
@@ -214,12 +223,16 @@ FfxNode ffx_scene_root(FfxScene scene);
  * the next sequence. @TODO: allow this? Adding it before would
  * be catastoropic.
  */
-void ffx_sceneNode_remove(FfxNode node, bool dealloc);
+void ffx_sceneNode_remove(FfxNode node);
 
 /**
  *  Get the scene that created %%node%%.
  */
 FfxNode ffx_sceneNode_getScene(FfxNode node);
+
+FfxNodeTag ffx_sceneNode_getTag(FfxNode node);
+void ffx_sceneNode_setTag(FfxNode node, FfxNodeTag tag);
+
 
 /**
  *  Get the node position.
@@ -234,6 +247,11 @@ void ffx_sceneNode_setPosition(FfxNode node, FfxPoint pos);
 
 void ffx_sceneNode_offsetPosition(FfxNode node, FfxPoint offset);
 
+FfxNode ffx_sceneNode_findTag(FfxNode node, FfxNodeTag tag);
+
+bool ffx_sceneNode_walk(FfxNode scene, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void *arg);
+
 
 ///////////////////////////////
 // Group Node
@@ -242,6 +260,7 @@ void ffx_sceneNode_offsetPosition(FfxNode node, FfxPoint offset);
  *  Create a group node.
  */
 FfxNode ffx_scene_createGroup(FfxScene scene);
+bool ffx_scene_isGroup(FfxScene scene);
 
 FfxNode ffx_sceneGroup_getFirstChild(FfxNode node);
 void ffx_sceneGroup_appendChild(FfxNode node, FfxNode child);
@@ -302,6 +321,7 @@ void ffx_sceneNode_stopAnimations(FfxNode node, bool completeAnimations);
  *  Create a fill node which will fill the entire viewport with %%color%%.
  */
 FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color);
+bool ffx_scene_isFill(FfxNode node);
 
 /**
  *  Get the current fill color.
@@ -323,6 +343,7 @@ void ffx_sceneFill_setColor(FfxNode node, color_ffxt color);
  *  Create a box node.
  */
 FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size);
+bool ffx_scene_isBox(FfxNode node);
 
 /**
  *  Get the box color.
@@ -352,6 +373,7 @@ void ffx_sceneBox_setSize(FfxNode node, FfxSize size);
  *  Create a label.
  */
 FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text);
+bool ffx_scene_isLabel(FfxNode node);
 
 size_t ffx_sceneLabel_getTextLength(FfxNode node);
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length);
@@ -413,6 +435,7 @@ void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
 
 FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
   size_t length);
+bool ffx_scene_isImage(FfxNode node);
 
 color_ffxt ffx_sceneImage_getTint(FfxNode node);
 void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
@@ -425,6 +448,7 @@ void ffx_sceneImage_setData(FfxNode node, const uint16_t* data, size_t length);
 // Viewport
 /*
 FfxNode ffx_scene_createViewport(FfxScene scene, FfxNode child);
+bool ffx_scene_isViewport(FfxNode node);
 
 FfxNode ffx_sceneViewport_getChild(FfxNode node);
 
