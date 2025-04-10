@@ -166,6 +166,11 @@ static  void _imageRenderPal8(FfxPoint pos, FfxProperty a, FfxProperty b,
 //////////////////////////
 // Methods
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg) {
+    return true;
+}
+
 static void destroyFunc(FfxNode node) {
 }
 
@@ -210,6 +215,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
@@ -232,6 +238,10 @@ FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
     state->data = data;
 
     return node;
+}
+
+bool ffx_scene_isImage(FfxNode node) {
+    return ffx_scene_isNode(node, &vtable);
 }
 
 

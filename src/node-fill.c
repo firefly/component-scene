@@ -12,6 +12,11 @@ typedef struct FillNode {
 //////////////////////////
 // Methods
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg) {
+    return true;
+}
+
 static void destroyFunc(FfxNode node) { }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
@@ -48,6 +53,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
@@ -65,6 +71,10 @@ FfxNode ffx_scene_createFill(FfxScene scene, color_ffxt color) {
     fill->color = color;
 
     return node;
+}
+
+bool ffx_scene_isFill(FfxNode node) {
+    return ffx_scene_isNode(node, &vtable);
 }
 
 

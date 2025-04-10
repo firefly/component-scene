@@ -26,7 +26,7 @@ typedef enum NodeFlag {
     NodeFlagRemove         = (1 << 3),
 
     // Node should be freed (after removal) on the next sequence
-    NodeFlagFree           = (1 << 4),
+    //NodeFlagFree           = (1 << 4),
 
     // Node is in an animations block; changes should be queued as
     // an animation target
@@ -39,8 +39,6 @@ NodeFlag ffx_sceneNode_hasFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_setFlags(FfxNode node, NodeFlag flags);
 void ffx_sceneNode_clearFlags(FfxNode node, NodeFlag flags);
 
-void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
-void ffx_sceneNode_dump(FfxNode node, size_t indent);
 
 typedef struct Action {
     struct Action *nextAction;
@@ -71,6 +69,7 @@ typedef struct Node {
 
     struct Scene *scene;
     FfxPoint position;
+    FfxNodeTag tag;
     uint32_t flags;
     FfxNode nextSibling;
 
@@ -120,7 +119,6 @@ void renderUnlock(Scene *scene);
 
 void animationLock(Scene *scene);
 void animationUnlock(Scene *scene);
-
 
 
 

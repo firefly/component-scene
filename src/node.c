@@ -34,6 +34,11 @@ FfxNode ffx_scene_createNode(FfxScene scene, const FfxNodeVTable *vtable,
     return node;
 }
 
+bool ffx_scene_isNode(FfxNode _node, const FfxNodeVTable *vtable) {
+    Node *node = _node;
+    return (node->vtable == vtable);
+}
+
 void* ffx_sceneNode_getState(FfxNode _node) {
     Node *node = _node;
     return &node[1];
@@ -61,16 +66,14 @@ void ffx_sceneNode_free(FfxNode _node) {
     ffx_sceneNode_memFree(node, node);
 }
 
-void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
+void ffx_sceneNode_remove(FfxNode _node) {
     Node *node = assertNode(_node);
 
     // <Critical Section>
     animationLock(node->scene);
 
-    // @TODO: maybe this doesn't need to be done?
-    //        in updateAnimations detect a removed node
-
-    // Clear all animations on this node; no onComplete is called
+    // Clear the animation node; causes updateAnimations to release
+    // the animation and actions.
     Animation *animation = node->scene->animationHead;
     while (animation) {
         if (animation->node == node) { animation->node = NULL; }
@@ -80,11 +83,7 @@ void ffx_sceneNode_remove(FfxNode _node, bool dealloc) {
     animationUnlock(node->scene);
     // </Critical Section>
 
-    if (dealloc) {
-        node->flags |= NodeFlagRemove | NodeFlagFree;
-    } else {
-        node->flags |= NodeFlagRemove;
-    }
+    node->flags |= NodeFlagRemove;
 }
 
 
@@ -110,6 +109,13 @@ void ffx_sceneNode_clearFlags(FfxNode _node, NodeFlag flags) {
 //////////////////////////
 // VTable access
 
+bool ffx_sceneNode_walk(FfxNode _node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg) {
+
+    Node *node = _node;
+    return node->vtable->walkFunc(_node, enterFunc, exitFunc, arg);
+}
+
 void ffx_sceneNode_sequence(FfxNode _node, FfxPoint worldPoint) {
     Node *node = _node;
     node->vtable->sequenceFunc(_node, worldPoint);
@@ -127,6 +133,16 @@ void ffx_sceneNode_dump(FfxNode _node, size_t indent) {
 FfxNode ffx_sceneNode_getScene(FfxNode _node) {
     Node *node = _node;
     return node->scene;
+}
+
+FfxNodeTag ffx_sceneNode_getTag(FfxNode _node) {
+    Node *node = _node;
+    return node->tag;
+}
+
+void ffx_sceneNode_setTag(FfxNode _node, FfxNodeTag tag) {
+    Node *node = _node;
+    node->tag = tag;
 }
 
 FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
@@ -156,6 +172,7 @@ void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
         .y = node->position.y + offset.y,
     });
 }
+
 
 // Can this be migrated to use ffx_sceneNode_createPointAction?
 

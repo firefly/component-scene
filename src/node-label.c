@@ -208,6 +208,11 @@ static void renderText(uint16_t *frameBuffer, const char *text,
 //////////////////////////
 // Methods
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg) {
+    return true;
+}
+
 static void destroyFunc(FfxNode node) {
     ffx_sceneLabel_setText(node, NULL);
 }
@@ -331,6 +336,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
@@ -353,6 +359,10 @@ FfxNode ffx_scene_createLabel(FfxScene scene, FfxFont font, const char* text) {
     ffx_sceneLabel_setText(node, text);
 
     return node;
+}
+
+bool ffx_scene_isLabel(FfxNode node) {
+    return ffx_scene_isNode(node, &vtable);
 }
 
 

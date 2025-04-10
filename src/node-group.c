@@ -13,6 +13,32 @@ typedef struct GroupNode {
 //////////////////////////
 // Methods
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg) {
+
+    GroupNode *state = ffx_sceneNode_getState(node);
+
+    // I have children; visit them each
+    FfxNode *child = state->firstChild;
+    while (child) {
+        FfxNode *nextChild = ffx_sceneNode_getNextSibling(child);
+
+        if (enterFunc) {
+            if (!enterFunc(child, arg)) { return false; }
+        }
+
+        ffx_sceneNode_walk(child, enterFunc, exitFunc, arg);
+
+        if (exitFunc) {
+            if (!exitFunc(child, arg)) { return false; }
+        }
+
+        child = nextChild;
+    }
+
+    return true;
+}
+
 static void destroyFunc(FfxNode node) {
     GroupNode *state = ffx_sceneNode_getState(node);
 
@@ -24,6 +50,7 @@ static void destroyFunc(FfxNode node) {
     }
 }
 
+// @TODO: migrate this to walk
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
     FfxPoint pos = ffx_sceneNode_getPosition(node);
     worldPos.x += pos.x;
@@ -53,11 +80,8 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
 
             ((Node*)child)->nextSibling = NULL;
 
-            if (ffx_sceneNode_hasFlags(child, NodeFlagFree)) {
+            if (ffx_sceneNode_hasFlags(child, NodeFlagRemove)) {
                 ffx_sceneNode_free(child);
-            } else {
-                ffx_sceneNode_clearFlags(child, NodeFlagHasParent |
-                  NodeFlagRemove | NodeFlagFree);
             }
 
         } else {
@@ -90,6 +114,7 @@ static void dumpFunc(FfxNode node, int indent) {
 }
 
 static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
     .destroyFunc = destroyFunc,
     .sequenceFunc = sequenceFunc,
     .renderFunc = renderFunc,
@@ -102,6 +127,10 @@ static const FfxNodeVTable vtable = {
 
 FfxNode ffx_scene_createGroup(FfxScene scene) {
     return ffx_scene_createNode(scene, &vtable, sizeof(GroupNode));
+}
+
+bool ffx_scene_isGroup(FfxNode node) {
+    return ffx_scene_isNode(node, &vtable);
 }
 
 
