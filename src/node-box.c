@@ -16,11 +16,33 @@ typedef struct BoxRender {
 } BoxRender;
 
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg);
+static void destroyFunc(FfxNode node);
+static void sequenceFunc(FfxNode node, FfxPoint worldPos);
+static void renderFunc(void *_render, uint16_t *_frameBuffer,
+  FfxPoint origin, FfxSize size);
+static void dumpFunc(FfxNode node, int indent);
+
+static const char name[] = "BoxNode";
+static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
+    .destroyFunc = destroyFunc,
+    .sequenceFunc = sequenceFunc,
+    .renderFunc = renderFunc,
+    .dumpFunc = dumpFunc,
+    .name = name
+};
+
+
 //////////////////////////
 // Methods
 
 static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
   FfxNodeVisitFunc exitFunc, void* arg) {
+
+    if (enterFunc && !enterFunc(node, arg)) { return false; }
+    if (exitFunc && !exitFunc(node, arg)) { return false; }
     return true;
 }
 
@@ -28,11 +50,16 @@ static void destroyFunc(FfxNode node) {
 }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    BoxNode *box = ffx_sceneNode_getState(node);
-
     FfxPoint pos = ffx_sceneNode_getPosition(node);
     pos.x += worldPos.x;
     pos.y += worldPos.y;
+
+    if (pos.x >= 240 || pos.y >= 240) { return; }
+
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+
+    if (pos.x + box->size.width < 0 || pos.y + box->size.height < 0 ||
+      ffx_color_isTransparent(box->color)) { return; }
 
     BoxRender *render = ffx_scene_createRender(node, sizeof(BoxRender));
     render->size = box->size;
@@ -43,17 +70,16 @@ static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
 static void renderBoxBlend(uint16_t *frameBuffer, int32_t ox, int32_t oy,
   int32_t width, int32_t height, color_ffxt _color) {
 
-    // Get the color an RGB565 components
     FfxColorRGB color = ffx_color_parseRGB(_color);
-    int r = color.red >> 3;
-    int g = color.green >> 2;
-    int b = color.blue >> 3;
-
-    // @TODO: Can I keep this as a fixed.26.6 and just >> 6?
 
     // Pad alpha with 11 zeros (i.e. 0x20 => 0x10000; 1 in fixed-point)
     fixed_ffxt alpha = color.opacity << 11;
     fixed_ffxt alpha_1 = FM_1 - alpha;
+
+    // Get the premultiplied color components as fixed values
+    int r = (color.red * alpha) >> 3;
+    int g = (color.green * alpha) >> 2;
+    int b = (color.blue * alpha) >> 3;
 
     for (uint32_t y = 0; y < height; y++) {
         uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
@@ -66,9 +92,9 @@ static void renderBoxBlend(uint16_t *frameBuffer, int32_t ox, int32_t oy,
             int bgB = bg & 0x1f;
 
             // Blend the values and convert from fixed-point
-            int blendR = ((alpha * r) + (alpha_1 * bgR)) >> 16;
-            int blendG = ((alpha * g) + (alpha_1 * bgG)) >> 16;
-            int blendB = ((alpha * b) + (alpha_1 * bgB)) >> 16;
+            int blendR = (r + (alpha_1 * bgR)) >> 16;
+            int blendG = (g + (alpha_1 * bgG)) >> 16;
+            int blendB = (b + (alpha_1 * bgB)) >> 16;
 
             *output++ = (blendR << 11) | (blendG << 5) | blendB;
         }
@@ -151,7 +177,7 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
 static void dumpFunc(FfxNode node, int indent) {
     FfxPoint pos = ffx_sceneNode_getPosition(node);
 
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
 
     char colorName[COLOR_STRING_LENGTH] = { 0 };
 
@@ -161,14 +187,6 @@ static void dumpFunc(FfxNode node, int indent) {
       ffx_color_sprintf(box->color, colorName));
 }
 
-static const FfxNodeVTable vtable = {
-    .walkFunc = walkFunc,
-    .destroyFunc = destroyFunc,
-    .sequenceFunc = sequenceFunc,
-    .renderFunc = renderFunc,
-    .dumpFunc = dumpFunc,
-};
-
 
 //////////////////////////
 // Life-cycle
@@ -176,7 +194,7 @@ static const FfxNodeVTable vtable = {
 FfxNode ffx_scene_createBox(FfxScene scene, FfxSize size) {
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(BoxNode));
 
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
     box->size = size;
 
     return node;
@@ -191,32 +209,76 @@ bool ffx_scene_isBox(FfxNode node) {
 // Properties
 
 color_ffxt ffx_sceneBox_getColor(FfxNode node) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return 0; }
     return box->color;
 }
 
 static void setColor(FfxNode node, color_ffxt color) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
     box->color = color;
 }
 
 void ffx_sceneBox_setColor(FfxNode node, color_ffxt color) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
     ffx_sceneNode_createColorAction(node, box->color, color, setColor);
 }
 
+void ffx_sceneBox_setOpacity(FfxNode node, uint8_t opacity) {
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
+    ffx_sceneBox_setColor(node, ffx_color_setOpacity(box->color, opacity));
+}
+
 FfxSize ffx_sceneBox_getSize(FfxNode node) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return (FfxSize){ }; }
     return box->size;
 }
 
 static void setSize(FfxNode node, FfxSize size) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
     box->size = size;
 }
 
 void ffx_sceneBox_setSize(FfxNode node, FfxSize size) {
-    BoxNode *box = ffx_sceneNode_getState(node);
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
     ffx_sceneNode_createSizeAction(node, box->size, size, setSize);
 }
 
+//////////////////////////
+// Animators
+
+static void animateColor(FfxNode node, FfxNodeAnimation *animation,
+  void *arg) {
+    color_ffxt *color = arg;
+    ffx_sceneBox_setColor(node, *color);
+}
+
+void ffx_sceneBox_animateColor(FfxNode node, color_ffxt color,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg) {
+
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
+    if (box->color == color) { return; }
+
+    ffx_sceneNode_runAnimation(node, animateColor, &color, delay, duration,
+      curve, onComplete, arg);
+}
+
+void ffx_sceneBox_animateOpacity(FfxNode node, uint8_t opacity,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg) {
+
+    BoxNode *box = ffx_sceneNode_getState(node, &vtable);
+    if (box == NULL) { return; }
+    color_ffxt color = ffx_color_setOpacity(box->color, opacity);
+
+    ffx_sceneBox_animateColor(node, color, delay, duration, curve,
+      onComplete, arg);
+}
