@@ -127,17 +127,16 @@ typedef struct Search {
 
 static bool checkTag(FfxNode node, void *arg) {
     Search *search = arg;
-    if (ffx_sceneNode_getTag(node) == search->tag) {
+    if (ffx_scene_isAnchor(node) &&
+      ffx_sceneAnchor_getTag(node) == search->tag) {
         search->node = node;
         return false;
     }
     return true;
 }
 
-FfxNode ffx_sceneNode_findTag(FfxNode node, FfxNodeTag tag) {
+FfxNode ffx_sceneNode_findAnchor(FfxNode node, FfxNodeTag tag) {
     Search search = { .tag = tag, .node = NULL };;
-
-    if (!checkTag(node, &search)) { return search.node; }
 
     if (!ffx_sceneNode_walk(node, checkTag, NULL, &search)) {
         return search.node;
@@ -146,9 +145,9 @@ FfxNode ffx_sceneNode_findTag(FfxNode node, FfxNodeTag tag) {
     return NULL;
 }
 
-FfxNode ffx_scene_findTag(FfxScene _scene, FfxNodeTag tag) {
+FfxNode ffx_scene_findAnchor(FfxScene _scene, FfxNodeTag tag) {
     Scene *scene = _scene;
-    return ffx_sceneNode_findTag(scene->root, tag);
+    return ffx_sceneNode_findAnchor(scene->root, tag);
 }
 
 //////////////////////////

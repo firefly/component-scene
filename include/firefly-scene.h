@@ -185,7 +185,7 @@ FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
  */
 void ffx_scene_free(FfxScene scene);
 
-FfxNode ffx_scene_findTag(FfxScene scene, FfxNodeTag tag);
+FfxNode ffx_scene_findAnchor(FfxScene scene, FfxNodeTag tag);
 
 bool ffx_scene_walk(FfxScene scene, FfxNodeVisitFunc enterFunc,
   FfxNodeVisitFunc exitFunc, void *arg);
@@ -230,9 +230,6 @@ void ffx_sceneNode_remove(FfxNode node);
  */
 FfxNode ffx_sceneNode_getScene(FfxNode node);
 
-FfxNodeTag ffx_sceneNode_getTag(FfxNode node);
-void ffx_sceneNode_setTag(FfxNode node, FfxNodeTag tag);
-
 
 /**
  *  Get the node position.
@@ -247,7 +244,10 @@ void ffx_sceneNode_setPosition(FfxNode node, FfxPoint pos);
 
 void ffx_sceneNode_offsetPosition(FfxNode node, FfxPoint offset);
 
-FfxNode ffx_sceneNode_findTag(FfxNode node, FfxNodeTag tag);
+bool ffx_sceneNode_getHidden(FfxNode node);
+void ffx_sceneNode_setHidden(FfxNode node, bool hidden);
+
+FfxNode ffx_sceneNode_findAnchor(FfxNode node, FfxNodeTag tag);
 
 bool ffx_sceneNode_walk(FfxNode scene, FfxNodeVisitFunc enterFunc,
   FfxNodeVisitFunc exitFunc, void *arg);
@@ -355,6 +355,17 @@ color_ffxt ffx_sceneBox_getColor(FfxNode node);
  */
 void ffx_sceneBox_setColor(FfxNode node, color_ffxt color);
 
+void ffx_sceneBox_setOpacity(FfxNode node, uint8_t opacity);
+
+void ffx_sceneBox_animateColor(FfxNode node, color_ffxt color,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg);
+
+void ffx_sceneBox_animateOpacity(FfxNode node, uint8_t opacity,
+  uint32_t delay, uint32_t duration, FfxCurveFunc curve,
+  FfxNodeAnimationCompletionFunc onComplete, void* arg);
+
+
 /**
  *  Get the box size.
  */
@@ -442,6 +453,20 @@ void ffx_sceneImage_setTint(FfxNode node, color_ffxt color);
 
 const uint16_t* ffx_sceneImage_getData(FfxNode node);
 void ffx_sceneImage_setData(FfxNode node, const uint16_t* data, size_t length);
+
+
+///////////////////////////////
+// Anchor
+
+FfxNode ffx_scene_createAnchor(FfxScene scene, FfxNodeTag tag,
+  size_t dataSize, FfxNode child);
+bool ffx_scene_isAnchor(FfxNode node);
+
+FfxNodeTag ffx_sceneAnchor_getTag(FfxNode node);
+void ffx_sceneAnchor_setTag(FfxNode node, FfxNodeTag tag);
+
+FfxNode ffx_sceneAnchor_getChild(FfxNode node);
+void* ffx_sceneAnchor_getData(FfxNode node);
 
 
 ///////////////////////////////

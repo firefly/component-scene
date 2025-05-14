@@ -25,12 +25,10 @@ typedef enum NodeFlag {
     // Node should be removed from the scene graph on the next sequence
     NodeFlagRemove         = (1 << 3),
 
-    // Node should be freed (after removal) on the next sequence
-    //NodeFlagFree           = (1 << 4),
-
     // Node is in an animations block; changes should be queued as
     // an animation target
 //    NodeFlagCapturing       = (1 << 8),
+    NodeFlagHidden         = (1 << 4),
 
 } NodeFlag;
 
@@ -69,7 +67,6 @@ typedef struct Node {
 
     struct Scene *scene;
     FfxPoint position;
-    FfxNodeTag tag;
     uint32_t flags;
     FfxNode nextSibling;
 
