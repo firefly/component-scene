@@ -39,8 +39,14 @@ bool ffx_scene_isNode(FfxNode _node, const FfxNodeVTable *vtable) {
     return (node->vtable == vtable);
 }
 
-void* ffx_sceneNode_getState(FfxNode _node) {
+void* ffx_sceneNode_getState(FfxNode _node, const FfxNodeVTable *vtable) {
     Node *node = _node;
+    if (vtable != node->vtable) {
+        printf("FfxNode mismatch; called wrong method on %s\n",
+          node->vtable->name);
+        esp_backtrace_print(5);
+        return NULL;
+    }
     return &node[1];
 }
 
@@ -117,6 +123,7 @@ bool ffx_sceneNode_walk(FfxNode _node, FfxNodeVisitFunc enterFunc,
 }
 
 void ffx_sceneNode_sequence(FfxNode _node, FfxPoint worldPoint) {
+    if (ffx_sceneNode_getHidden(_node)) { return; }
     Node *node = _node;
     node->vtable->sequenceFunc(_node, worldPoint);
 }
@@ -126,6 +133,11 @@ void ffx_sceneNode_dump(FfxNode _node, size_t indent) {
     node->vtable->dumpFunc(_node, indent);
 }
 
+const char* ffx_sceneNode_getName(FfxNode _node) {
+    Node *node = _node;
+    return node->vtable->name;
+}
+
 
 //////////////////////////
 // Properties
@@ -133,16 +145,6 @@ void ffx_sceneNode_dump(FfxNode _node, size_t indent) {
 FfxNode ffx_sceneNode_getScene(FfxNode _node) {
     Node *node = _node;
     return node->scene;
-}
-
-FfxNodeTag ffx_sceneNode_getTag(FfxNode _node) {
-    Node *node = _node;
-    return node->tag;
-}
-
-void ffx_sceneNode_setTag(FfxNode _node, FfxNodeTag tag) {
-    Node *node = _node;
-    node->tag = tag;
 }
 
 FfxNode ffx_sceneNode_getNextSibling(FfxNode _node) {
@@ -173,6 +175,17 @@ void ffx_sceneNode_offsetPosition(FfxNode _node, FfxPoint offset) {
     });
 }
 
+bool ffx_sceneNode_getHidden(FfxNode node) {
+    return ffx_sceneNode_hasFlags(node, NodeFlagHidden);
+}
+
+void ffx_sceneNode_setHidden(FfxNode node, bool hidden) {
+    if (hidden) {
+        ffx_sceneNode_setFlags(node, NodeFlagHidden);
+    } else {
+        ffx_sceneNode_clearFlags(node, NodeFlagHidden);
+    }
+}
 
 // Can this be migrated to use ffx_sceneNode_createPointAction?
 

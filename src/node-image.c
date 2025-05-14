@@ -17,6 +17,25 @@ typedef struct ImageRender {
 } ImageRender;
 
 
+static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
+  FfxNodeVisitFunc exitFunc, void* arg);
+static void destroyFunc(FfxNode node);
+static void sequenceFunc(FfxNode node, FfxPoint worldPos);
+static void renderFunc(void *_render, uint16_t *_frameBuffer,
+  FfxPoint origin, FfxSize size);
+static void dumpFunc(FfxNode node, int indent);
+
+static const char name[] = "ImageNode";
+static const FfxNodeVTable vtable = {
+    .walkFunc = walkFunc,
+    .destroyFunc = destroyFunc,
+    .sequenceFunc = sequenceFunc,
+    .renderFunc = renderFunc,
+    .dumpFunc = dumpFunc,
+    .name = name
+};
+
+
 //////////////////////////
 // Image Rasterizing
 
@@ -168,6 +187,9 @@ static  void _imageRenderPal8(FfxPoint pos, FfxProperty a, FfxProperty b,
 
 static bool walkFunc(FfxNode node, FfxNodeVisitFunc enterFunc,
   FfxNodeVisitFunc exitFunc, void* arg) {
+
+    if (enterFunc && !enterFunc(node, arg)) { return false; }
+    if (exitFunc && !exitFunc(node, arg)) { return false; }
     return true;
 }
 
@@ -175,7 +197,7 @@ static void destroyFunc(FfxNode node) {
 }
 
 static void sequenceFunc(FfxNode node, FfxPoint worldPos) {
-    ImageNode *state = ffx_sceneNode_getState(node);
+    ImageNode *state = ffx_sceneNode_getState(node, &vtable);
 
     FfxPoint pos = ffx_sceneNode_getPosition(node);
     pos.x += worldPos.x;
@@ -205,7 +227,7 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
 static void dumpFunc(FfxNode node, int indent) {
     FfxPoint pos = ffx_sceneNode_getPosition(node);
 
-    ImageNode *state = ffx_sceneNode_getState(node);
+    ImageNode *state = ffx_sceneNode_getState(node, &vtable);
 
     FfxSize size = ffx_scene_getImageSize(state->data, 3);
 
@@ -213,14 +235,6 @@ static void dumpFunc(FfxNode node, int indent) {
     printf("<Image pos=%dx%d size=%dx%x image=%p>\n", pos.x, pos.y,
       size.width, size.height, state->data);
 }
-
-static const FfxNodeVTable vtable = {
-    .walkFunc = walkFunc,
-    .destroyFunc = destroyFunc,
-    .sequenceFunc = sequenceFunc,
-    .renderFunc = renderFunc,
-    .dumpFunc = dumpFunc,
-};
 
 
 //////////////////////////
@@ -234,7 +248,7 @@ FfxNode ffx_scene_createImage(FfxScene scene, const uint16_t *data,
 
     FfxNode node = ffx_scene_createNode(scene, &vtable, sizeof(ImageNode));
 
-    ImageNode *state = ffx_sceneNode_getState(node);
+    ImageNode *state = ffx_sceneNode_getState(node, &vtable);
     state->data = data;
 
     return node;
@@ -249,13 +263,15 @@ bool ffx_scene_isImage(FfxNode node) {
 // Properties
 
 const uint16_t* ffx_sceneImage_getData(FfxNode node) {
-    ImageNode *img = ffx_sceneNode_getState(node);
+    ImageNode *img = ffx_sceneNode_getState(node, &vtable);
+    if (img == NULL) { return NULL; }
     return img->data;
 }
 
 void ffx_sceneImage_setData(FfxNode node, const uint16_t *data,
   size_t length) {
-    ImageNode *img = ffx_sceneNode_getState(node);
+    ImageNode *img = ffx_sceneNode_getState(node, &vtable);
+    if (img == NULL) { return; }
 
     FfxSize size = ffx_scene_getImageSize(data, length);
     if (size.width) {
@@ -264,17 +280,20 @@ void ffx_sceneImage_setData(FfxNode node, const uint16_t *data,
 }
 
 color_ffxt ffx_sceneImage_getTint(FfxNode node) {
-    ImageNode *img = ffx_sceneNode_getState(node);
+    ImageNode *img = ffx_sceneNode_getState(node, &vtable);
+    if (img == NULL) { return 0; }
     return img->tint;
 }
 
 static void setTint(FfxNode node, color_ffxt tint) {
-    ImageNode *img = ffx_sceneNode_getState(node);
+    ImageNode *img = ffx_sceneNode_getState(node, &vtable);
+    if (img == NULL) { return; }
     img->tint = tint;
 }
 
 void ffx_sceneImage_setTint(FfxNode node, color_ffxt tint) {
-    ImageNode *img = ffx_sceneNode_getState(node);
+    ImageNode *img = ffx_sceneNode_getState(node, &vtable);
+    if (img == NULL) { return; }
     ffx_sceneNode_createColorAction(node, img->tint, tint, setTint);
 }
 
