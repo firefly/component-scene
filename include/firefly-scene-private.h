@@ -40,6 +40,8 @@ typedef struct FfxNodeVTable {
 
     // Called when deallocating the Node
     FfxNodeDestroyFunc destroyFunc;
+
+    const char* name;
 } FfxNodeVTable;
 
 
@@ -47,6 +49,8 @@ bool ffx_sceneNode_walk(FfxNode node, FfxNodeVisitFunc enterFunc,
   FfxNodeVisitFunc exitFunc, void* arg);
 void ffx_sceneNode_sequence(FfxNode node, FfxPoint worldPoint);
 void ffx_sceneNode_dump(FfxNode node, size_t indent);
+const char* ffx_sceneNode_getName(FfxNode _node);
+
 
 //////////////////////////////
 // Memory
@@ -81,11 +85,14 @@ bool ffx_scene_isNode(FfxNode node, const FfxNodeVTable *vtable);
 /**
  *  Gets a pointer to the state allocated in the createNode call.
  */
-void* ffx_sceneNode_getState(FfxNode node);
+void* ffx_sceneNode_getState(FfxNode node, const FfxNodeVTable *vtable);
 
 /**
  *  Frees a Node. This should only be used internally when actually
  *  freeing a node that was removed.
+ *
+ *  Generally, the [[ffx_sceneNode_remove]] should be used, which will
+ *  schedule the node for freeing on the next sequence.
  */
 void ffx_sceneNode_free(FfxNode node);
 
