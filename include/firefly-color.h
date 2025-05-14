@@ -6,6 +6,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -91,15 +92,15 @@ typedef uint32_t color_ffxt;
 #define OPACITY_100          (32)
 
 
-#define COLOR_TRANSPARENT    (0x10000000)
+#define COLOR_TRANSPARENT    (0x20000000)
 
 #define COLOR_BLACK          (0x00000000)
 #define COLOR_GRAY           (0x00888888)
 #define COLOR_WHITE          (0x00ffffff)
 
 #define COLOR_RED            (0x00ff0000)
-#define COLOR_BLUE           (0x0000ff00)
-#define COLOR_GREEN          (0x000000ff)
+#define COLOR_GREEN          (0x0000ff00)
+#define COLOR_BLUE           (0x000000ff)
 
 
 ///////////////////////////////
@@ -219,6 +220,8 @@ typedef struct FfxColorHSV {
 FfxColorHSV ffx_color_parseHSV(color_ffxt color);
 
 uint8_t ffx_color_getOpacity(color_ffxt color);
+
+bool ffx_color_isTransparent(color_ffxt color);
 
 color_ffxt ffx_color_setOpacity(color_ffxt color, uint8_t opacity);
 

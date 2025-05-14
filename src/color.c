@@ -184,8 +184,13 @@ static int32_t lerp(int32_t a, int32_t b, fixed_ffxt t) {
 color_ffxt ffx_color_lerpfx(color_ffxt c0, color_ffxt c1, fixed_ffxt t) {
     int32_t a = lerp(_getO(c0), _getO(c1), t);
 
-    if (((c0 >> 31) + (c1 >> 31)) != 2) {
+    // Only differ in opacity
+    if ((c0 & ~MASK_ALPHA) == (c1 & ~MASK_ALPHA)) {
+        return (c0 & ~MASK_ALPHA) | ((MAX_OPACITY - a) << 24);
     }
+
+    if ((c0 & COLOR_HSV) == 0) { c0 = _fromRGB(c0); }
+    if ((c1 & COLOR_HSV) == 0) { c1 = _fromRGB(c1); }
 
     int32_t h = lerp(_getH(c0), _getH(c1), t);
     int32_t s = lerp(_getS(c0), _getS(c1), t);
@@ -307,7 +312,7 @@ color_ffxt ffx_color_setOpacity(color_ffxt color, uint8_t opacity) {
 }
 
 bool ffx_color_isTransparent(color_ffxt color) {
-    return (_getO(color) == 0);
+    return (MASK_ALPHA & color) == 0x20000000;
 }
 
 //color_ffxt ffx_color_blend(color_ffxt foreground, color_ffxt background) {
