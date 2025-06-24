@@ -20,6 +20,19 @@ FfxNode assertNode(FfxNode node) {
     return node;
 }
 
+static void queueStop(FfxNode _node, int32_t startTime, uint32_t stop) {
+    Animation *animation = ffx_sceneNode_memAlloc(_node, sizeof(Animation));
+
+    Node *node = _node;
+    animation->node = node;
+    animation->startTime = startTime;
+    animation->stop = stop;
+
+    if (xQueueSendToBack(node->scene->animQueue, &animation, 0) != pdPASS) {
+        printf("FAILED TO QUEUE!\n");
+    }
+}
+
 //////////////////////////
 // Life-cycle
 
@@ -53,9 +66,10 @@ void* ffx_sceneNode_getState(FfxNode _node, const FfxNodeVTable *vtable) {
 void ffx_sceneNode_free(FfxNode _node) {
 
     Node *node = _node;
+    node->flags |= NodeFlagRemove;
 
     // <Critical Section>
-    animationLock(node->scene);
+//    animationLock(node->scene);
 
     // Clear all animations on this node; no onComplete is called
     Animation *animation = node->scene->animationHead;
@@ -64,7 +78,7 @@ void ffx_sceneNode_free(FfxNode _node) {
         animation = animation->nextAnimation;
     }
 
-    animationUnlock(node->scene);
+//    animationUnlock(node->scene);
     // <//Critical Section>
 
     node->vtable->destroyFunc(node);
@@ -76,17 +90,17 @@ void ffx_sceneNode_remove(FfxNode _node) {
     Node *node = assertNode(_node);
 
     // <Critical Section>
-    animationLock(node->scene);
+//    animationLock(node->scene);
 
     // Clear the animation node; causes updateAnimations to release
     // the animation and actions.
-    Animation *animation = node->scene->animationHead;
-    while (animation) {
-        if (animation->node == node) { animation->node = NULL; }
-        animation = animation->nextAnimation;
-    }
+//    Animation *animation = node->scene->animationHead;
+//    while (animation) {
+//        if (animation->node == node) { animation->node = NULL; }
+//        animation = animation->nextAnimation;
+//    }
 
-    animationUnlock(node->scene);
+//    animationUnlock(node->scene);
     // </Critical Section>
 
     node->flags |= NodeFlagRemove;
@@ -431,64 +445,19 @@ void ffx_sceneNode_animate(FfxNode _node,
            scene->initArg);
     }
 
-    // <Cretical Section>
-    animationLock(scene);
-
-    // Set the time
-    animation->startTime = scene->tick;
-
-    // Add the new animation to the animation list
-    if (scene->animationHead == NULL) {
-        scene->animationHead = scene->animationTail = animation;
-    } else {
-        scene->animationTail->nextAnimation = animation;
-        scene->animationTail = animation;
-    }
-
-    animationUnlock(scene);
-    // </Cretical Section>
-
     node->pendingAnimation = NULL;
+
+    if (xQueueSendToBack(scene->animQueue, &animation, 0) != pdPASS) {
+        printf("FAILED TO QUEUE!\n");
+    }
 }
 
-void ffx_sceneNode_advanceAnimations(FfxNode _node, uint32_t advance) {
-    Node *node = _node;
-
-    // <Critical Section>
-    animationLock(node->scene);
-
-    Animation *animation = node->scene->animationHead;
-    while (animation) {
-        if (animation->node == _node && !animation->stop) {
-            animation->startTime -= advance;
-        }
-        animation = animation->nextAnimation;
-    }
-
-    animationUnlock(node->scene);
-    // </Critical Section>
+void ffx_sceneNode_advanceAnimations(FfxNode node, uint32_t advance) {
+    if (advance > 0x7fffffff) { advance = 0x7fffffff; }
+    queueStop(node, advance, STOP_ADVANCE);
 }
 
-void ffx_sceneNode_stopAnimations(FfxNode _node, bool completeAnimations) {
-    Node *node = _node;
-
-    FfxSceneActionStop stop = FfxSceneActionStopCurrent;
-    if (completeAnimations) { stop = FfxSceneActionStopFinal; }
-
-    // <Critical Section>
-    animationLock(node->scene);
-
-    // @TODO: maybe this can be done with flags?
-    // Note: nope, in case removed and re-added? Maybe drop support?
-
-    Animation *animation = node->scene->animationHead;
-    while (animation) {
-        if (animation->node == _node && !animation->stop) {
-            animation->stop = stop;
-        }
-        animation = animation->nextAnimation;
-    }
-
-    animationUnlock(node->scene);
-    // </Critical Section>
+void ffx_sceneNode_stopAnimations(FfxNode node, bool completeAnimations) {
+    queueStop(node, 0, completeAnimations ? FfxSceneActionStopFinal:
+      FfxSceneActionStopCurrent);
 }

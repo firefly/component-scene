@@ -7,25 +7,8 @@
 
 #include "scene.h"
 
-
-//////////////////////////
-// Mutex
-
-void renderLock(Scene *scene) {
-    xSemaphoreTake(scene->renderLock, portMAX_DELAY);
-}
-
-void renderUnlock(Scene *scene) {
-    xSemaphoreGive(scene->renderLock);
-}
-
-void animationLock(Scene *scene) {
-    xSemaphoreTake(scene->animLock, portMAX_DELAY);
-}
-
-void animationUnlock(Scene *scene) {
-    xSemaphoreGive(scene->animLock);
-}
+// DEBUG
+uint32_t ticks();
 
 
 //////////////////////////
@@ -59,7 +42,6 @@ void ffx_sceneNode_memFree(FfxNode _node, void *ptr) {
 }
 
 
-
 //////////////////////////
 // Life-cycle
 
@@ -79,13 +61,14 @@ FfxScene ffx_scene_init(FfxSceneAllocFunc allocFunc,
     scene->tick = xTaskGetTickCount();
     scene->root = ffx_scene_createGroup(scene);
 
+    scene->animQueue = xQueueCreateStatic(MAX_ANIMATION_BACKLOG,
+      sizeof(Animation*), scene->animQueueStorageBuffer,
+      &scene->animQueueBuffer);
+
     if (scene->root == NULL) {
         freeFunc((void*)scene, initArg);
         return NULL;
     }
-
-    scene->animLock = xSemaphoreCreateMutexStatic(&scene->animLockData);
-    scene->renderLock = xSemaphoreCreateMutexStatic(&scene->renderLockData);
 
     return scene;
 }
@@ -163,17 +146,60 @@ FfxNode ffx_scene_root(FfxScene _scene) {
 // Sequencing
 
 static void updateAnimations(Scene *scene) {
+    int32_t now = scene->tick;
+
+    // Add any queued animation actions
+    while (true) {
+
+        Animation *anim = NULL;
+        BaseType_t result = xQueueReceive(scene->animQueue, &anim, 0);
+        if (result != pdPASS) { break; }
+
+        // Queued Advance Animations
+        if (anim->stop == STOP_ADVANCE) {
+            Animation *animation = scene->animationHead;
+            while (animation) {
+                if (animation->node == anim->node && !animation->stop) {
+                    animation->startTime -= anim->startTime;;
+                }
+                animation = animation->nextAnimation;
+            }
+            ffx_scene_memFree(scene, animation);
+            continue;
+        }
+
+        // Queued Stop Animations
+        if (anim->stop) {
+            Animation *animation = scene->animationHead;
+            while (animation) {
+                if (animation->node == anim->node && !animation->stop) {
+                    animation->stop = anim->stop;
+                }
+                animation = animation->nextAnimation;
+            }
+            ffx_scene_memFree(scene, animation);
+            continue;
+        }
+
+        // Queued Animation
+
+        anim->startTime = now;
+
+        // Add the new animation to the animation list
+        if (scene->animationHead == NULL) {
+            scene->animationHead = scene->animationTail = anim;
+        } else {
+            scene->animationTail->nextAnimation = anim;
+            scene->animationTail = anim;
+        }
+    }
+
 
     // The list of completed animations; removed from the list by not freed
     Animation *completeHead = NULL;
     Animation *completeTail = NULL;
 
     Animation *prevAnimation = NULL;
-
-    // <Critical Section>
-    animationLock(scene);
-
-    int32_t now = scene->tick;
 
     Animation *animation = scene->animationHead;
     while (animation) {
@@ -190,7 +216,7 @@ static void updateAnimations(Scene *scene) {
         // maths in signed-land.
         int32_t delay = animation->info.delay;
 
-        if (animation->node == NULL) {
+        if (animation->node == NULL || animation->node->flags & NodeFlagRemove) {
             // Node was removed
 
         } else if (!stop && now <= animation->startTime + delay) {
@@ -250,9 +276,6 @@ static void updateAnimations(Scene *scene) {
     if (prevAnimation == NULL) { scene->animationHead = NULL; }
     scene->animationTail = prevAnimation;
 
-    animationUnlock(scene);
-    // </Critical Section>
-
     // Clean up complete animations
     animation = completeHead;
     while (animation) {
@@ -290,11 +313,10 @@ static void updateAnimations(Scene *scene) {
 void ffx_scene_sequence(FfxScene _scene) {
     Scene *scene = _scene;
 
+    scene->stats.seqCount++;
+
     // Update all animations
     updateAnimations(scene);
-
-    // <Critical Section>
-    renderLock(scene);
 
     // Delete the last render data
     if (scene->renderHead) {
@@ -312,21 +334,27 @@ void ffx_scene_sequence(FfxScene _scene) {
 
     // Sequence all the nodes
     ffx_sceneNode_sequence(scene->root, ffx_point(0, 0));
-
-    renderUnlock(scene);
-    // </Critical Section>
 }
 
 
 //////////////////////////
 // Rendering
 
+//#define RENDER_SIZE         (512)
+
 void* ffx_scene_createRender(FfxNode _node, size_t stateSize) {
 
     Node *node = _node;
     Scene *scene = node->scene;
 
-    Render *render = ffx_sceneNode_memAlloc(_node, sizeof(Render) + stateSize);
+    size_t size = sizeof(Render) + stateSize;
+
+    scene->stats.renderCount++;
+    scene->stats.totalRenderSize += size;
+    if (size > scene->stats.maxRenderSize) { scene->stats.maxRenderSize = size; }
+    if (size < scene->stats.minRenderSize) { scene->stats.minRenderSize = size; }
+
+    Render *render = ffx_sceneNode_memAlloc(_node, size);
 
     if (scene->renderHead == NULL) {
         scene->renderHead = scene->renderTail = render;
@@ -346,15 +374,11 @@ void ffx_scene_render(FfxScene _scene, uint16_t *fragment, FfxPoint origin,
 
     Scene *scene = _scene;
 
-    renderLock(scene);
-
     Render *render = scene->renderHead;
     while (render) {
         render->renderFunc(&render[1], fragment, origin, size);
         render = render->nextRender;
     }
-
-    renderUnlock(scene);
 }
 
 
@@ -366,5 +390,23 @@ void ffx_scene_dump(FfxScene _scene) {
     ffx_sceneNode_dump(scene->root, 0);
 }
 
+void ffx_scene_dumpStats(FfxScene _scene) {
+    Scene *scene = _scene;
 
+    printf("Scene Stats: seqCount=%ld\n", scene->stats.seqCount);
+
+    printf("  Render Alloc: count=%ld min=%ld max=%ld avg=%ld avgPerFrame=%ld\n",
+      scene->stats.renderCount,
+      scene->stats.minRenderSize, scene->stats.maxRenderSize,
+      scene->stats.totalRenderSize / scene->stats.renderCount,
+      scene->stats.totalRenderSize / scene->stats.seqCount
+      );
+
+    scene->stats.seqCount = 0;;
+
+    scene->stats.renderCount = 0;;
+    scene->stats.minRenderSize = 0;;
+    scene->stats.maxRenderSize = 0;;
+    scene->stats.totalRenderSize = 0;;
+}
 

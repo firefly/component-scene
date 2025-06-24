@@ -11,6 +11,10 @@ extern "C" {
 #include "firefly-scene-private.h"
 
 
+#define MAX_ANIMATION_BACKLOG (32)
+
+#define STOP_ADVANCE          (0xff01)
+#define STOP_FREE             (0xff02)
 
 struct Node;
 struct Scene;
@@ -76,6 +80,24 @@ typedef struct Node {
     // Node State here
 } Node;
 
+typedef struct Stats {
+    uint32_t seqCount;
+    uint32_t renderCount, minRenderSize, maxRenderSize, totalRenderSize;
+} Stats;
+
+typedef struct RenderBlock {
+    struct RenderBlock *nextBlock;
+    size_t offset;
+    uint8_t *data;
+} RenderBlock;
+
+typedef struct RenderList {
+    RenderBlock *blockHead;
+    RenderBlock *blockTail;
+    Render *head;
+    Render *tail;
+} RenderList;
+
 
 typedef struct Scene {
     // Memory allocation
@@ -87,6 +109,8 @@ typedef struct Scene {
 
     // The root (group) node
     Node *root;
+
+    Stats stats;
 
     // Gloabl tick
     // Guarded by animationLock ??
@@ -102,8 +126,9 @@ typedef struct Scene {
     Animation *animationHead;
     Animation *animationTail;
 
-    StaticSemaphore_t animLockData;
-    SemaphoreHandle_t animLock;
+    StaticQueue_t animQueueBuffer;
+    uint8_t animQueueStorageBuffer[MAX_ANIMATION_BACKLOG * sizeof(Animation*)];
+    QueueHandle_t animQueue;
 
     StaticSemaphore_t renderLockData;
     SemaphoreHandle_t renderLock;
@@ -114,8 +139,6 @@ typedef struct Scene {
 void renderLock(Scene *scene);
 void renderUnlock(Scene *scene);
 
-void animationLock(Scene *scene);
-void animationUnlock(Scene *scene);
 
 
 
