@@ -86,8 +86,36 @@ typedef struct FfxFontMetrics {
     bool isBold;
 } FfxFontMetrics;
 
-typedef bool (*FfxNodeVisitFunc)(FfxNode node, void* arg);
+/**
+ *  QR Code Mode.
+ */
+typedef enum FfxQRMode {
+    FfxQRModeNumeric          = 0,
+    FfxQRModeAlphanumeric     = 1,
+    FfxQRModeByte             = 2
+} FfxQRMode;
 
+/**
+ *  QR Code Error Correction Level.
+ */
+typedef enum FfxQRCorrection {
+    FfxQRCorrectionLow        = 0,
+    FfxQRCorrectionMedium     = 1,
+    FfxQRCorrectionQuartile   = 2,
+    FfxQRCorrectionHigh       = 3
+} FfxQRCorrection;
+
+/**
+ *  QR Code Metrics calculations.
+ */
+typedef struct FfxQRMetrics {
+    uint16_t size;
+    uint8_t version;
+    FfxQRMode mode;
+    FfxQRCorrection level;
+} FfxQRMetrics;
+
+typedef bool (*FfxNodeVisitFunc)(FfxNode node, void* arg);
 
 ///////////////////////////////
 // Static Methods
@@ -101,6 +129,25 @@ FfxFontMetrics ffx_scene_getFontMetrics(FfxFont font);
  *  Compute the image dimensions for %%data%% (with %%length%%).
  */
 FfxSize ffx_scene_getImageSize(const uint16_t *data, size_t length);
+
+/**
+ *  Compute the QR Code metrics for %%text%% with %%minLevel%%.
+ *
+ *  If the required version to store %%text%% has additional space for
+ *  higher error correction levels, it will be automatically elevated.
+ */
+FfxQRMetrics ffx_scene_getQRMetrics(const char* text,
+  FfxQRCorrection minLevel);
+
+/**
+ *  Compute the QR Code metrics for %%data%% with %%minLevel%%.
+ *
+ *  If the required version to store %%text%% has additional space for
+ *  higher error correction levels, it will be automatically elevated.
+ */
+FfxQRMetrics ffx_scene_getQRMetricsData(const uint8_t* data, size_t length,
+  FfxQRCorrection minLevel);
+
 
 /**
  *  Create a point from %%x%% and %%y%%.
@@ -194,6 +241,8 @@ bool ffx_scene_walk(FfxScene scene, FfxNodeVisitFunc enterFunc,
  *  Dump the scene graph to the console for debugging purposes.
  */
 void ffx_scene_dump(FfxScene scene);
+
+void ffx_scene_dumpStats(FfxScene scene);
 
 /**
  *  Create a point-in-time renderable snapshot of %%scene%%.
@@ -440,7 +489,6 @@ color_ffxt ffx_sceneLabel_getOutlineColor(FfxNode node);
 void ffx_sceneLabel_setOutlineColor(FfxNode node, color_ffxt color);
 
 
-
 ///////////////////////////////
 // Image
 
@@ -467,6 +515,96 @@ void ffx_sceneAnchor_setTag(FfxNode node, FfxNodeTag tag);
 
 FfxNode ffx_sceneAnchor_getChild(FfxNode node);
 void* ffx_sceneAnchor_getData(FfxNode node);
+
+
+///////////////////////////////
+// QR Code
+
+/**
+ *  Create a new QR Code Node for %%text%% and the %%minLevel%% error
+ *  correction.
+ */
+FfxNode ffx_scene_createQR(FfxScene scene, const char* text,
+  FfxQRCorrection minLevel);
+
+/**
+ *  Create a new QR Code Node for %%data%% and the %%minLevel%% error
+ *  correction.
+ */
+FfxNode ffx_scene_createQRData(FfxScene scene, const uint8_t* data,
+  size_t length, FfxQRCorrection minLevel);
+
+/**
+ *  Get the size of the QR Code, in pixels, including the quiet zone and
+ *  adjusting for the module size.
+ */
+uint16_t ffx_sceneQR_getSize(FfxNode node);
+
+/**
+ *  Get the QR Code version code.
+ */
+uint8_t ffx_sceneQR_getVersion(FfxNode node);
+
+/**
+ *  Get the number of pixels (width and height) each square module of
+ *  the QR Code will occupy.
+ *
+ *  The default is 1.
+ */
+uint8_t ffx_sceneQR_getModuleSize(FfxNode node);
+
+/**
+ *  Set the number of pixels (width and height) each square module of
+ *  the QR Code will occupy.
+ *
+ *  The default is 1.
+ */
+void ffx_sceneQR_setModuleSize(FfxNode node, uint8_t moduleSize);
+
+/**
+ *  Get the number of modules around the QR Code that will be rendered
+ *  with the **backgroundColor** to assist scanners searching the image.
+ *
+ *  The default (and recommended value) is 4.
+ */
+uint8_t ffx_sceneQR_getQuietZone(FfxNode node);
+
+/**
+ *  Set the number of modules around the QR Code that will be rendered
+ *  with the **backgroundColor** to assist scanners searching the image.
+ *
+ *  The default (and recommended value) is 4.
+ */
+void ffx_sceneQR_setQuietZone(FfxNode node, uint8_t quietZone);
+
+/**
+ *  Get the foreground color of each module.
+ *
+ *  The default is COLOR_BLACK.
+ */
+color_ffxt ffx_sceneQR_getForegroundColor(FfxNode node);
+
+/**
+ *  set the foreground color of each module.
+ *
+ *  The default is COLOR_BLACK.
+ */
+void ffx_sceneQR_setForegroundColor(FfxNode node, color_ffxt color);
+
+/**
+ *  Get the background color of the QR code, including the quiet zone.
+ *
+ *  The default is COLOR_WHITE.
+ */
+color_ffxt ffx_sceneQR_getBackgroundColor(FfxNode node);
+
+/**
+ *  Set the background color of the QR code, including the quiet zone.
+ *
+ *  The default is COLOR_WHITE.
+ */
+void ffx_sceneQR_setBackgroundColor(FfxNode node, color_ffxt color);
+
 
 
 ///////////////////////////////

@@ -140,6 +140,27 @@ static void renderBoxOpaque(uint16_t *frameBuffer, int32_t ox, int32_t oy,
     }
 }
 
+void _ffx_renderBox(uint16_t *frameBuffer, int32_t ox, int32_t oy,
+  int32_t width, int32_t height, color_ffxt color) {
+
+    if (color == RGBA_DARKER50) {
+        renderBoxDarker50(frameBuffer, ox, oy, width, height);
+        return;
+    }
+
+    if (color == RGBA_DARKER75) {
+        renderBoxDarker75(frameBuffer, ox, oy, width, height);
+        return;
+    }
+
+    if (ffx_color_getOpacity(color) == MAX_OPACITY) {
+        renderBoxOpaque(frameBuffer, ox, oy, width, height, color);
+        return;
+    }
+
+    renderBoxBlend(frameBuffer, ox, oy, width, height, color);
+}
+
 static void renderFunc(void *_render, uint16_t *frameBuffer,
   FfxPoint origin, FfxSize size) {
 
@@ -148,30 +169,10 @@ static void renderFunc(void *_render, uint16_t *frameBuffer,
     FfxClip clip = ffx_scene_clip(render->position, render->size, origin,
       size);
 
-    uint8_t opacity = ffx_color_getOpacity(render->color);
+    if (clip.width == 0) { return; }
 
-    if (clip.width == 0 || opacity == 0) { return; }
-
-    if (render->color == RGBA_DARKER50) {
-        renderBoxDarker50(frameBuffer, clip.vpX, clip.vpY, clip.width,
-          clip.height);
-        return;
-    }
-
-    if (render->color == RGBA_DARKER75) {
-        renderBoxDarker75(frameBuffer, clip.vpX, clip.vpY, clip.width,
-          clip.height);
-        return;
-    }
-
-    if (opacity == MAX_OPACITY) {
-        renderBoxOpaque(frameBuffer, clip.vpX, clip.vpY, clip.width,
-          clip.height, render->color);
-        return;
-    }
-
-    renderBoxBlend(frameBuffer, clip.vpX, clip.vpY, clip.width, clip.height,
-      render->color);
+    _ffx_renderBox(frameBuffer, clip.vpX, clip.vpY, clip.width, clip.height,
+        render->color);
 }
 
 static void dumpFunc(FfxNode node, int indent) {
