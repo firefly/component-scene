@@ -273,8 +273,6 @@ FfxNode ffx_scene_createQRData(FfxScene scene, const uint8_t* data,
   size_t length, FfxQRCorrection minLevel) {
 
     FfxQRMetrics metrics = ffx_scene_getQRMetricsData(data, length, minLevel);
-    printf("METRICS: version=%d level=%d mode=%d\n", metrics.version,
-      metrics.level, metrics.mode);
 
     // Number of module bytes (rounded up to word-alignment)
     size_t moduleBytes = 4 * ((qrcode_getBufferSize(metrics.version) + 3) / 4);
@@ -551,7 +549,6 @@ static void bb_appendBits(BitBucket *bitBuffer, uint32_t val, uint8_t length) {
         bitBuffer->data[offset >> 3] |= ((val >> i) & 1) << (7 - (offset & 7));
     }
     bitBuffer->bitOffsetOrWidth = offset;
-    printf("OFFSET: %ld\n", offset);
 }
 /*
 void bb_setBits(BitBucket *bitBuffer, uint32_t val, int offset, uint8_t length) {
