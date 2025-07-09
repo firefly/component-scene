@@ -215,6 +215,21 @@ typedef void (*FfxSceneAnimationDispatchFunc)(void *setupArg,
   FfxNodeAnimationCompletionFunc callFunc, FfxNode node,
   FfxSceneActionStop stopType, void *arg, void *initArg);
 
+typedef bool (*FfxSceneAnimationQueueFunc)(void *animation, void *initArg);
+typedef void* (*FfxSceneAnimationDequeueFunc)(void *initArg);
+
+typedef struct FfxSceneConfig {
+    FfxSceneAllocFunc allocFunc;
+    FfxSceneFreeFunc freeFunc;
+
+    FfxSceneAnimationSetupFunc setupFunc;
+    FfxSceneAnimationDispatchFunc dispatchFunc;
+
+    FfxSceneAnimationQueueFunc queueFunc;
+    FfxSceneAnimationDequeueFunc dequeueFunc;
+
+    void *initArg;
+} FfxSceneConfig;
 
 /**
  *  Allocate and initialize a new Scene Graph, which will use the
