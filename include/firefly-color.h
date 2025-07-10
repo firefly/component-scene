@@ -102,6 +102,18 @@ typedef uint32_t color_ffxt;
 #define COLOR_GREEN          (0x0000ff00)
 #define COLOR_BLUE           (0x000000ff)
 
+#define COLOR_CYAN           (0x0000ffff)
+#define COLOR_YELLOW         (0x00ffff00)
+#define COLOR_MAGENTA        (0x00ff00ff)
+
+#define COLOR_DARK_RED       (0x00880000)
+#define COLOR_DARK_GREEN     (0x00008800)
+#define COLOR_DARK_BLUE      (0x00000088)
+
+#define COLOR_DARK_CYAN      (0x00008888)
+#define COLOR_DARK_YELLOW    (0x00888800)
+#define COLOR_DARK_MAGENTA   (0x00880088)
+
 
 ///////////////////////////////
 // Creating color
@@ -143,6 +155,7 @@ color_ffxt ffx_color_hsv(int32_t hue, int32_t sat, int32_t val);
 color_ffxt ffx_color_hsva(int32_t hue, int32_t sat, int32_t val,
   int32_t opacity);
 
+//color_ffxt ffx_color_darken(color_ffxt color, );
 
 ///////////////////////////////
 // Conversion
