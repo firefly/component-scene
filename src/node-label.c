@@ -128,31 +128,48 @@ static void renderGlyphOpaque(uint16_t *frameBuffer, int ox, int oy, int width,
   int height, const uint32_t *data, color_ffxt _color) {
 
     // Glyph is entirely outside the fragment; skip
-    if (ox < -width || ox > 240 || oy < -height || oy > 24) { return; }
+    if (ox < -width || ox >= 240 || oy < -height || oy >= 24) { return; }
 
     // Get the color, broken into its pre-multiplied components
     uint16_t fg = ffx_color_rgb16(_color);
 
     int x = 0, y = 0;
+
+    uint32_t mask = 0x80000000;
+    if (oy < 0) {
+        y = -oy;
+
+        int bits = -oy * width;
+        data += bits / 32;
+        mask >>= bits % 32;
+    }
+
+    int ty = oy + y;
+    if (ty >= 24) { return; }
+
     // @TODO: Use pointer math instead of multiply
     //uint16_t *output = &frameBuffer[oy * 240 + ox]
     while (true) {
         uint32_t bitmap = *data++;
-        for (int i = 0; i < 32; i++) {
-            int tx = ox + x, ty = oy + y;
-            if (bitmap & (0x80000000 >> i)) {
-                if (tx >= 0 && tx < 240 && ty >= 0 && ty < 24) {
-                    frameBuffer[ty * 240 + tx] = fg;
-                }
+        while(mask) {
+
+            int tx = ox + x;
+            if (ty >= 0 && tx >= 0 && tx < 240 && (bitmap & mask)) {
+                frameBuffer[ty * 240 + tx] = fg;
             }
 
             x++;
             if (x >= width) {
                 x = 0;
                 y++;
-                if (y >= height) { return; }
+                ty = oy + y;
+                if (y >= height || ty >= 24) { return; }
             }
+
+            mask >>= 1;
         }
+
+        mask = 0x80000000;
     }
 }
 
