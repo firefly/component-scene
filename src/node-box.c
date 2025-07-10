@@ -107,8 +107,8 @@ static void renderBoxDarker50(uint16_t *frameBuffer, int32_t ox, int32_t oy,
     for (uint32_t y = 0; y < height; y++) {
         uint16_t *output = &frameBuffer[240 * (oy + y) + ox];
         for (uint32_t x = 0; x < width; x++) {
-            // (RRRR 0GGG G0BB BBB0) >> 1
-            uint16_t darker = ((*output) & 0xf7be) >> 1;
+            // (RRRR 0GGG GG0B BBB0) >> 1
+            uint16_t darker = ((*output) & 0xf7de) >> 1;
             *output++ = darker;
         }
     }
