@@ -454,6 +454,8 @@ size_t ffx_sceneLabel_getTextLength(FfxNode node);
 size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length);
 
 void ffx_sceneLabel_setText(FfxNode node, const char* text);
+void ffx_sceneLabel_setTextData(FfxNode node, const uint8_t* data,
+  size_t length);
 void ffx_sceneLabel_setTextFormat(FfxNode node, const char* format, ...);
 
 void ffx_sceneLabel_appendText(FfxNode node, const char* text);

@@ -474,6 +474,12 @@ size_t ffx_sceneLabel_copyText(FfxNode node, char* output, size_t length) {
 }
 
 void ffx_sceneLabel_setText(FfxNode node, const char* text) {
+    ffx_sceneLabel_setTextData(node, (const uint8_t*)text,
+      text ? strlen(text): 0);
+}
+
+void ffx_sceneLabel_setTextData(FfxNode node, const uint8_t* data,
+  size_t length) {
     LabelNode *label = ffx_sceneNode_getState(node, &vtable);
     if (label == NULL) { return; }
 
@@ -482,17 +488,16 @@ void ffx_sceneLabel_setText(FfxNode node, const char* text) {
         label->text = NULL;
     }
 
-    if (text == NULL) { return; }
+    if (data == NULL) { return; }
 
-    size_t length = strlen(text);
     if (length) {
         label->text = ffx_sceneNode_memAlloc(node, length + 1);
-        strcpy(label->text, text);
+        memcpy(label->text, data, length);
+        label->text[length] = '\0';
     } else {
         label->text = NULL;
     }
 }
-
 void ffx_sceneLabel_setTextFormat(FfxNode node, const char* format, ...) {
     char *str = NULL;
 
