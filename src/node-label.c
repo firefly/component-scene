@@ -254,7 +254,13 @@ static void renderText(uint16_t *frameBuffer, const char *text,
         // NULL-termination
         if (c == 0) { break; }
 
-        if (c == '\n') {
+
+        if (c == ' ') {
+            // Space
+            x += width + SPACE_WIDTH;
+            continue;
+
+        } else if (c == '\n') {
             // New Line; use NL glyph
             c = 127;
 
