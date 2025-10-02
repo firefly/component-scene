@@ -254,10 +254,13 @@ static void renderText(uint16_t *frameBuffer, const char *text,
         // NULL-termination
         if (c == 0) { break; }
 
-        // non-printable character; @TODO: add placeholder
-        if (c <= ' ' || c > '~') {
-            x += width + SPACE_WIDTH;
-            continue;
+        if (c == '\n') {
+            // New Line; use NL glyph
+            c = 127;
+
+        } else if (c <= ' ' || c > '~') {
+            // non-printable character; use the replace glyph
+            c = 128;
         }
 
         int index = (c - ' ');
@@ -266,7 +269,7 @@ static void renderText(uint16_t *frameBuffer, const char *text,
         int gpl = ((font[index] >> 18) & 0x0f) - 6;
         int gpt = ((font[index] >> 13) & 0x1f) - 6;
         int offset = (font[index] & 0x1fff);
-        const uint32_t *data = &font[95 + offset];
+        const uint32_t *data = &font[97 + offset];
 
         if (opacity == MAX_OPACITY) {
             renderGlyphOpaque(frameBuffer, x + gpl, y + gpt, gw, gh, data, color);

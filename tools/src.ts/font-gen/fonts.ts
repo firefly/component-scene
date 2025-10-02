@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 import { Font } from "./bdf.js";
 
+import { Extra } from "./extra.js";
+
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const base = resolve(__dirname, "../../fonts");
 
@@ -19,8 +22,12 @@ export function resolveFontPath(path: string): string {
 export type FontSize = "SMALL" | "MEDIUM" | "LARGE";
 export type FontWeight = "NORMAL" | "BOLD";
 
-export const FontSizes: ReadonlyArray<FontSize> = Object.freeze([ "SMALL", "MEDIUM", "LARGE" ]);
-export const FontWeights: ReadonlyArray<FontWeight> = Object.freeze([ "NORMAL", "BOLD" ]);
+export const FontSizes: ReadonlyArray<FontSize> = Object.freeze([
+    "SMALL", "MEDIUM", "LARGE"
+]);
+export const FontWeights: ReadonlyArray<FontWeight> = Object.freeze([
+    "NORMAL", "BOLD"
+]);
 
 const SizeMap:Record<FontSize, number> = {
   SMALL: 15, MEDIUM: 20, LARGE: 24 };
@@ -61,7 +68,8 @@ const Fonts: Array<{ filename: string, size: number, weight: FontWeight}> = [
 export function loadFont(_size: FontSize, _weight: FontWeight): Font {
     for (const { filename, size, weight } of Fonts) {
         if (SizeMap[_size] === size && _weight === weight) {
-            return Font.fromBdf(loadFontData(filename), filename);
+            const extra = Extra[`${ size }-${ weight }`];
+            return Font.fromBdf(loadFontData(filename), filename, extra);
         }
     }
     throw new Error(`unknown font: size=${ _size } weight=${ _weight }`);
