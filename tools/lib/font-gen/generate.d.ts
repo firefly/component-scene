@@ -137,7 +137,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
     setPixelColor(hex: number, x: number, y: number): any;
     hasAlpha(): boolean;
     composite<I extends unknown>(src: I, x?: number, y?: number, options?: {
-        mode?: import("jimp").BlendMode;
+        mode?: import("@jimp/core").BlendMode;
         opacitySource?: number;
         opacityDest?: number;
     }): any;
@@ -282,7 +282,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
         inputColorType?: import("jimp").PNGColorType;
     }> ? T_11 extends Record<Mime, infer O> ? O : never : never : never)>(path: `${string}.${Extension}`, options?: Options | undefined): Promise<void>;
     clone<S extends {
-        new (options?: import("jimp").JimpConstructorOptions): any;
+        new (options?: import("@jimp/core").JimpConstructorOptions): any;
         read(url: string | Buffer | ArrayBuffer, options?: Record<"image/tiff", Record<string, any> | undefined> | Record<"image/gif", Record<string, any> | undefined> | Record<"image/bmp", import("@jimp/js-bmp").DecodeBmpOptions> | Record<"image/x-ms-bmp", import("@jimp/js-bmp").DecodeBmpOptions> | Record<"image/jpeg", import("@jimp/js-jpeg").DecodeJpegOptions> | Record<"image/png", import("@jimp/js-png").DecodePngOptions> | undefined): Promise<any & import("@jimp/core").JimpInstanceMethods<any, {
             blit<I extends import("@jimp/types").JimpClass>(image: I, options: import("@jimp/plugin-blit").BlitOptions): I;
         } & {
@@ -302,7 +302,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
             fade<I extends import("@jimp/types").JimpClass>(image: I, f: number): I;
             convolution<I extends import("@jimp/types").JimpClass>(image: I, options: {
                 kernel: number[][];
-                edgeHandling?: import("jimp").Edge | undefined;
+                edgeHandling?: import("@jimp/types").Edge | undefined;
             } | number[][]): I;
             opaque<I extends import("@jimp/types").JimpClass>(image: I): I;
             pixelate<I extends import("@jimp/types").JimpClass>(image: I, options: number | {
@@ -356,7 +356,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
         } & {
             quantize<I extends import("@jimp/types").JimpClass>(image: I, options: import("@jimp/plugin-quantize").QuantizeOptions): I;
         }>>;
-        fromBitmap(bitmap: import("jimp").RawImageData): InstanceType<any> & import("@jimp/core").JimpInstanceMethods<any, {
+        fromBitmap(bitmap: import("@jimp/core").RawImageData): InstanceType<any> & import("@jimp/core").JimpInstanceMethods<any, {
             blit<I extends import("@jimp/types").JimpClass>(image: I, options: import("@jimp/plugin-blit").BlitOptions): I;
         } & {
             blur<I extends import("@jimp/types").JimpClass>(image: I, r: number): I;
@@ -375,7 +375,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
             fade<I extends import("@jimp/types").JimpClass>(image: I, f: number): I;
             convolution<I extends import("@jimp/types").JimpClass>(image: I, options: {
                 kernel: number[][];
-                edgeHandling?: import("jimp").Edge | undefined;
+                edgeHandling?: import("@jimp/types").Edge | undefined;
             } | number[][]): I;
             opaque<I extends import("@jimp/types").JimpClass>(image: I): I;
             pixelate<I extends import("@jimp/types").JimpClass>(image: I, options: number | {
@@ -448,7 +448,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
             fade<I extends import("@jimp/types").JimpClass>(image: I, f: number): I;
             convolution<I extends import("@jimp/types").JimpClass>(image: I, options: {
                 kernel: number[][];
-                edgeHandling?: import("jimp").Edge | undefined;
+                edgeHandling?: import("@jimp/types").Edge | undefined;
             } | number[][]): I;
             opaque<I extends import("@jimp/types").JimpClass>(image: I): I;
             pixelate<I extends import("@jimp/types").JimpClass>(image: I, options: number | {
@@ -508,7 +508,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
     setPixelColor(hex: number, x: number, y: number): any;
     hasAlpha(): boolean;
     composite<I extends unknown>(src: I, x?: number, y?: number, options?: {
-        mode?: import("jimp").BlendMode;
+        mode?: import("@jimp/core").BlendMode;
         opacitySource?: number;
         opacityDest?: number;
     }): any;
@@ -539,7 +539,7 @@ export declare function createFontPreview(font: Font, text: string, isDark: bool
     fade<I extends import("@jimp/types").JimpClass>(image: I, f: number): I;
     convolution<I extends import("@jimp/types").JimpClass>(image: I, options: {
         kernel: number[][];
-        edgeHandling?: import("jimp").Edge | undefined;
+        edgeHandling?: import("@jimp/types").Edge | undefined;
     } | number[][]): I;
     opaque<I extends import("@jimp/types").JimpClass>(image: I): I;
     pixelate<I extends import("@jimp/types").JimpClass>(image: I, options: number | {

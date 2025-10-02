@@ -1,3 +1,4 @@
+import type { ExtraGlyphs } from "./extra.js";
 export declare class Box {
     readonly x: number;
     readonly y: number;
@@ -36,6 +37,6 @@ export declare class Font {
     constructor(data: Map<string, Record<string, string>>, filename?: string);
     getData(char: string): Record<string, string>;
     getBitmap(char: string): Bitmap;
-    static fromBdf(content: string, filename?: string): Font;
+    static fromBdf(content: string, filename?: string, extra?: ExtraGlyphs): Font;
 }
 //# sourceMappingURL=bdf.d.ts.map

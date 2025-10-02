@@ -228,6 +228,14 @@ export class Bitmap {
     }
 }
 _Bitmap_data = new WeakMap();
+const HEX = "0123456789ABCDEF";
+function bin2hex(bin) {
+    let hex = "";
+    for (let i = 0; i < bin.length; i += 4) {
+        hex += HEX[parseInt(bin.substring(i, i + 4), 2)];
+    }
+    return hex;
+}
 export class Font {
     constructor(data, filename) {
         _Font_data.set(this, void 0);
@@ -251,7 +259,7 @@ export class Font {
     getBitmap(char) {
         return Bitmap.fromData(this.getData(char), this.bounds);
     }
-    static fromBdf(content, filename) {
+    static fromBdf(content, filename, extra) {
         let data = new Map();
         // Accumulate the header metadata into "__"
         let current = {};
@@ -289,6 +297,43 @@ export class Font {
             }
             // Add the field to the character
             current[key] = value;
+        }
+        if (extra) {
+            const ob = Box.fromBbx(data.get("O")?.BBX || "error");
+            const width = Math.ceil(ob.width / 8) * 8;
+            let h = -1, w = -1;
+            for (const code in extra) {
+                if (h === -1) {
+                    h = extra[code].length;
+                }
+                if (h !== extra[code].length) {
+                    throw new Error(`bad extra height: ${h} !=  extra[code.length]`);
+                }
+                for (const line of extra[code]) {
+                    if (w === -1) {
+                        w = line.length;
+                    }
+                    if (w !== line.length) {
+                        throw new Error(`bad extra width: ${h} !=  extra[code.length]`);
+                    }
+                }
+            }
+            for (const code in extra) {
+                let bitmap = [];
+                for (const scanline of extra[code]) {
+                    let result = '';
+                    for (let i = 0; i < scanline.length; i++) {
+                        result += (scanline[i] === "#") ? "1" : "0";
+                    }
+                    while (result.length < width) {
+                        result += "0";
+                    }
+                    bitmap.push(bin2hex(result));
+                }
+                data.set(String.fromCharCode(parseInt(code)), {
+                    BBX: `${w} ${h} 0 0`, bitmap: bitmap.join(" ")
+                });
+            }
         }
         return new Font(data, filename);
     }

@@ -29,7 +29,7 @@ export async function createFontPreview(font, text, isDark) {
     for (let i = 0; i < text.length; i++) {
         putChar(text[i], i * (width + 1), 1 * (height + 1));
     }
-    for (let i = 33; i < 127; i++) {
+    for (let i = 33; i < 129; i++) {
         const chr = String.fromCharCode(i);
         const index = i - 33;
         const bx = (index % 48) * (width + 1);
@@ -121,7 +121,7 @@ function getValue(v) {
         const padLefts = [];
         const padTops = [];
         const data = [];
-        for (let i = 33; i < 127; i++) {
+        for (let i = 33; i < 129; i++) {
             // Compute the glyph bitmap
             let bitmap = font.getBitmap(String.fromCharCode(i));
             if (outline) {
